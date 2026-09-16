@@ -9,6 +9,16 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
+## [Unreleased]
+
+### Changed
+
+- **Repinned onto the current `botmaker-shared`.** No source in this module changed since `0.0.12` — `HEAD`
+  is that tag. What moves is `.deps.env`'s `SHARED_TAG`, which `jitpack.yml` injects and
+  `flatten-maven-plugin` bakes into the published pom, so a consumer resolving this artifact gets the
+  shared release it was built against rather than the previous one. That pin is the whole content of this
+  release, and it is why a `--shared` release forces a `--session` one.
+
 ## [0.0.12] — 2026-09-04
 
 - **The pin `0.0.11` added was itself unbuildable on JitPack**, so that tag is missing too.
