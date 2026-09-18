@@ -25,7 +25,7 @@ jobs:
       - name: Check out botmaker-shared
         uses: actions/checkout@v7
         with:
-          repository: LiQiyeDev/botmaker-shared
+          repository: BotMakerDev/botmaker-shared
           path: .deps/botmaker-shared
 
       - uses: actions/setup-java@v6
@@ -61,7 +61,7 @@ jobs:
       - name: Check out botmaker-shared
         uses: actions/checkout@v7
         with:
-          repository: LiQiyeDev/botmaker-shared
+          repository: BotMakerDev/botmaker-shared
           path: .deps/botmaker-shared
 
       - uses: actions/setup-java@v6

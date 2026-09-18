@@ -34,7 +34,7 @@ project:
   copyright: LiQiyeDev
   inceptionYear: '2026'
   links:
-    homepage: https://github.com/LiQiyeDev/botmaker-session
+    homepage: https://github.com/BotMakerDev/botmaker-session
   languages:
     java:
       groupId: com.github.LiQiyeDev
@@ -43,7 +43,7 @@ project:
 
 release:
   github:
-    owner: LiQiyeDev
+    owner: BotMakerDev
     name: botmaker-session
     tagName: 'v{{projectVersion}}'
     releaseName: 'v{{projectVersion}}'
