@@ -9,7 +9,7 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
-## [Unreleased]
+## [0.0.15] — 2026-09-18
 
 No source changes since v0.0.14; re-released for updated upstream pins.
 
