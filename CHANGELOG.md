@@ -9,6 +9,14 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
+## [Unreleased]
+
+No source changes since v0.1.2; re-released for updated upstream pins.
+
+### Changed
+
+- Built against `botmaker-shared` 0.2.0, whose telemetry channel became two-way. No change of its own.
+
 ## [0.1.2] — 2026-10-01
 
 ### Changed
