@@ -105,4 +105,5 @@ stability discipline once real bots ship.
 ## Planning
 
 For large changes, write the plan to a dedicated plan file first, so work survives an interrupted session.
-**Always update `ROADMAP.md`** when you add a feature or refactor — append a dated entry, newest first.
+A finished change writes `CHANGELOG.md` under `## [Unreleased]`. `ROADMAP.md` holds open work only: add an
+item when work is left for later, remove it when done; never a dated done-entry.
