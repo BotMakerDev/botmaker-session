@@ -37,7 +37,7 @@ project:
     homepage: https://github.com/BotMakerDev/botmaker-session
   languages:
     java:
-      groupId: com.github.LiQiyeDev
+      groupId: com.github.BotMakerDev
       artifactId: botmaker-session
       version: '21'
 

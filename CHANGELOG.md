@@ -11,6 +11,11 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ## [Unreleased]
 
+### Changed
+
+- Published as `com.github.BotMakerDev:botmaker-session` (was `com.github.LiQiyeDev`). Tags already built
+  under the old groupId still resolve under it.
+
 No source changes since v0.1.2; re-released for updated upstream pins.
 
 ### Changed

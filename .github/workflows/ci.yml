@@ -128,7 +128,7 @@ jobs:
           echo "JRELEASER_PROJECT_VERSION=$version" >> "$GITHUB_ENV"
 
       # The version comes from the tag via JRELEASER_PROJECT_VERSION above, never from the pom: JitPack
-      # serves every tag as com.github.LiQiyeDev:<repo>:<tag> and the pom's <version> is cosmetic.
+      # serves every tag as com.github.BotMakerDev:<repo>:<tag> and the pom's <version> is cosmetic.
       - name: Publish the release
         uses: jreleaser/release-action@v2
         with:

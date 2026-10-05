@@ -5,13 +5,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <!--
-      groupId is com.github.LiQiyeDev (not com.botmaker.session) on purpose, exactly as in botmaker-shared:
-      JitPack always serves this repo as com.github.LiQiyeDev:botmaker-session:<tag> regardless of the pom, so
+      groupId is com.github.BotMakerDev (not com.botmaker.session) on purpose, exactly as in botmaker-shared:
+      JitPack always serves this repo as com.github.BotMakerDev:botmaker-session:<tag> regardless of the pom, so
       matching that here makes the umbrella reactor's GAV identical to the published GAV. One dependency line
       in the SDK/Studio then resolves locally (reactor, 0.0.0-SNAPSHOT) *and* from JitPack (a real tag). The
       version below is cosmetic — JitPack overrides it with the git tag on tag builds.
     -->
-    <groupId>com.github.LiQiyeDev</groupId>
+    <groupId>com.github.BotMakerDev</groupId>
     <artifactId>botmaker-session</artifactId>
     <version>0.0.0-SNAPSHOT</version>
 
@@ -63,7 +63,7 @@
           native payload, so the cost is a couple of MB (it does drag kotlin-stdlib along).
         -->
         <dependency>
-            <groupId>com.github.LiQiyeDev</groupId>
+            <groupId>com.github.BotMakerDev</groupId>
             <artifactId>botmaker-shared</artifactId>
             <version>${botmaker.shared.version}</version>
             <exclusions>
