@@ -5,7 +5,7 @@
 #   * release.sh knows the CONSTELLATION — which of the eight repositories changed, what each one's next
 #     version is, the order the tags go out in, and which upstream ref each downstream pins. Nothing in
 #     JReleaser can express that: its unit of work is one repository, one version, one release. The
-#     .deps.env this release commit carries is written by release.sh for the same reason.
+#     pom versions this release commit carries are written by the release library for the same reason.
 #   * this file knows what a release IS — the tag, the GitHub Release, and the notes on it.
 #
 # WHERE THIS RUNS: this repository's own CI, on a version tag, and nowhere else —
@@ -14,8 +14,8 @@
 # FILE (`gitdir: ../.git/modules/<mod>`) and JReleaser's JGit reports "repository not found", while
 # `--git-root-search` gets past it only by resolving the UMBRELLA repository — which would attach this
 # release to the wrong repo. jreleaser-maven-plugin is not used either: it ignores this file entirely (its
-# model comes from an XML block in the pom) and takes the version from <version>, which here is the cosmetic
-# 0.0.0-SNAPSHOT JitPack overrides.
+# model comes from an XML block in the pom) and takes the version from <version>, which was a cosmetic
+# 0.0.0-SNAPSHOT until 2026-10-06; the tag stays the version.
 #
 # THE VERSION ARRIVES AS JRELEASER_PROJECT_VERSION, set by the workflow from the tag that triggered it.
 #
