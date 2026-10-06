@@ -1,18 +1,8 @@
 jdk:
   - openjdk25
 install:
-  # The committed pom pins botmaker.shared.version=0.0.0-SNAPSHOT (the reactor/dev value). JitPack can't
-  # resolve a SNAPSHOT, so the shared tag is injected via -D at build time — the committed pom is never
-  # edited. The tag comes from .deps.env, written by the umbrella release.sh in this release's own commit,
-  # so it is the shared release this session tag was actually cut against rather than whatever `git
-  # ls-remote --tags | tail -1` happens to return. JitPack builds that shared tag on demand if its build
-  # hasn't run yet, which is what lets release.sh tag shared and session back to back.
-  #
-  # The -D reaches CONSUMERS only because pom.xml runs flatten-maven-plugin: Maven publishes the committed
-  # pom, not the effective one. That is also why SHARED_TAG is now REQUIRED rather than defaulted. The old
-  # `${SHARED_TAG:-v0.0.15}` fallback was harmless while the published pom kept the unresolved property (a
-  # stale -D only affected the build); with flatten it would be silently BAKED INTO the published pom,
-  # pointing every consumer of a hand-cut tag at a long-dead shared. Failing loudly is strictly better.
-  - . ./.deps.env
-  - '[ -n "${SHARED_TAG:-}" ] || { echo "ERROR: .deps.env must pin SHARED_TAG. Cut releases with the umbrella release.sh, which writes it into the release commit." >&2; exit 1; }'
-  - mvn install -DskipTests -Dmaven.javadoc.skip=true -B -Dbotmaker.shared.version=$SHARED_TAG
+  # A tag's pom names its upstreams' released versions, written by the umbrella release in the release
+  # commit (docs/refactor/43-real-versions.md), so the build needs nothing beside the checkout.
+  # flatten-maven-plugin writes them literally into the published pom. A tag cut by hand from main names
+  # -SNAPSHOT upstreams, which JitPack cannot resolve: the build fails rather than publishing.
+  - mvn install -DskipTests -Dmaven.javadoc.skip=true -B

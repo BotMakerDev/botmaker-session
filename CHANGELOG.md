@@ -13,6 +13,9 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ### Changed
 
+- The pom carries a real version and names shared's version, so a tag's pom says what it was built
+  against; `.deps.env` is gone and JitPack runs a plain `mvn install` (umbrella
+  `docs/refactor/43-real-versions.md`).
 - Published as `com.github.BotMakerDev:botmaker-session` (was `com.github.LiQiyeDev`). Tags already built
   under the old groupId still resolve under it.
 
