@@ -31,6 +31,10 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 - `display.BackendInstall`: the command that installs a missing gamescope or Xephyr on this distro (dnf, apt,
   pacman, zypper, read from `/etc/os-release`), run through `pkexec`; on an image-based system
   (`rpm-ostree`) the command to copy and restart after.
+- `RoundTripLiveTest` and `WaydroidRoundTripLiveTest` (live, opt-in): a click at the pixel where a marker
+  appears in the session's capture reaches the game at that pixel, on Xephyr, on gamescope, on the desktop
+  (`-Dbotmaker.live.host=true`), and in Waydroid on a private display (`-Dbotmaker.live.waydroid=true`, which
+  restarts Waydroid). `docs/display-pipeline.md` §3 has the results.
 
 ### Fixed
 - Closing a gamescope session no longer flashes a black window on the desktop. Teardown stopped the game before the
