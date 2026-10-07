@@ -1,6 +1,6 @@
 package com.botmaker.session.display;
 
-import com.botmaker.session.impl.NestedSession;
+import com.botmaker.session.SessionBackend;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -20,25 +20,25 @@ class BackendInstallTest {
     void fedoraInstallsBothBackendsWithDnf() {
         Map<String, String> fedora = Map.of("ID", "fedora");
         assertEquals(List.of("dnf", "install", "-y", "gamescope"),
-                BackendInstall.forBackend(NestedSession.Backend.GAMESCOPE, fedora, false).orElseThrow().command());
+                BackendInstall.forBackend(SessionBackend.GAMESCOPE, fedora, false).orElseThrow().command());
         assertEquals(List.of("dnf", "install", "-y", "xorg-x11-server-Xephyr"),
-                BackendInstall.forBackend(NestedSession.Backend.XEPHYR, fedora, false).orElseThrow().command());
+                BackendInstall.forBackend(SessionBackend.XEPHYR, fedora, false).orElseThrow().command());
     }
 
     @Test
     void aDerivativeIsKnownByItsIdLike() {
         Map<String, String> mint = Map.of("ID", "linuxmint", "ID_LIKE", "ubuntu debian");
         assertEquals(List.of("apt-get", "install", "-y", "xserver-xephyr"),
-                BackendInstall.forBackend(NestedSession.Backend.XEPHYR, mint, false).orElseThrow().command());
+                BackendInstall.forBackend(SessionBackend.XEPHYR, mint, false).orElseThrow().command());
         Map<String, String> endeavour = Map.of("ID", "endeavouros", "ID_LIKE", "arch");
         assertEquals("xorg-server-xephyr",
-                BackendInstall.forBackend(NestedSession.Backend.XEPHYR, endeavour, false).orElseThrow()
+                BackendInstall.forBackend(SessionBackend.XEPHYR, endeavour, false).orElseThrow()
                         .command().getLast());
     }
 
     @Test
     void anImageBasedSystemGetsACommandToCopyNotOneToRun() {
-        BackendInstall kinoite = BackendInstall.forBackend(NestedSession.Backend.GAMESCOPE,
+        BackendInstall kinoite = BackendInstall.forBackend(SessionBackend.GAMESCOPE,
                 Map.of("ID", "fedora", "VARIANT_ID", "kinoite"), true).orElseThrow();
         assertEquals(List.of("rpm-ostree", "install", "gamescope"), kinoite.command());
         assertTrue(kinoite.needsReboot());
@@ -48,17 +48,17 @@ class BackendInstallTest {
 
     @Test
     void aReadOnlySystemThatIsNotAnRpmImageHasNoCommand() {
-        assertEquals(Optional.empty(), BackendInstall.forBackend(NestedSession.Backend.XEPHYR,
+        assertEquals(Optional.empty(), BackendInstall.forBackend(SessionBackend.XEPHYR,
                 Map.of("ID", "endless", "ID_LIKE", "debian"), true), "ostree, but no rpm-ostree there");
-        assertEquals(Optional.empty(), BackendInstall.forBackend(NestedSession.Backend.GAMESCOPE,
+        assertEquals(Optional.empty(), BackendInstall.forBackend(SessionBackend.GAMESCOPE,
                 Map.of("ID", "steamos", "ID_LIKE", "arch"), false), "SteamOS's root is read-only");
     }
 
     @Test
     void anUnknownDistroHasNoCommand() {
         assertEquals(Optional.empty(),
-                BackendInstall.forBackend(NestedSession.Backend.GAMESCOPE, Map.of("ID", "nixos"), false));
-        assertEquals(Optional.empty(), BackendInstall.forBackend(NestedSession.Backend.GAMESCOPE, Map.of(), false));
+                BackendInstall.forBackend(SessionBackend.GAMESCOPE, Map.of("ID", "nixos"), false));
+        assertEquals(Optional.empty(), BackendInstall.forBackend(SessionBackend.GAMESCOPE, Map.of(), false));
     }
 
     @Test

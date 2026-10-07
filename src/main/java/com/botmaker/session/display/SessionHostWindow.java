@@ -1,6 +1,5 @@
-package com.botmaker.session.impl;
+package com.botmaker.session.display;
 
-import com.botmaker.session.display.SessionDisplay;
 
 import com.botmaker.shared.Diag;
 import com.botmaker.shared.capture.linux.X11;

@@ -1,6 +1,8 @@
 package com.botmaker.session.remote;
 
-import com.botmaker.session.impl.NestedSession;
+import com.botmaker.session.PrivateSession;
+import com.botmaker.session.SessionOptions;
+import com.botmaker.session.Sessions;
 
 import com.botmaker.shared.capture.linux.X11;
 import com.sun.jna.Pointer;
@@ -35,8 +37,8 @@ class RootCursorLiveTest {
         assumeTrue(display != null && !display.isBlank(), "needs a DISPLAY");
         assumeTrue(onPath("Xephyr"), "needs Xephyr on PATH");
 
-        NestedSession session = NestedSession.start(
-                NestedSession.Options.xephyr(640, 480).withoutWindowManager());
+        PrivateSession session = Sessions.startPrivate(
+                SessionOptions.xephyr(640, 480).withoutWindowManager());
         try {
             Pointer x = X11.INSTANCE.XOpenDisplay(session.displayName());
             assertNotNull(x, "should be able to open " + session.displayName());

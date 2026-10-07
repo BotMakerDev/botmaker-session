@@ -48,78 +48,16 @@ class HostSessionTest {
         assertEquals(SessionHealth.HEALTHY, session.health());
     }
 
-    /** With a target attached, keyboard input goes down the <em>targeted</em> controller calls — today's game path. */
+    /** Input goes straight to the wrapped controller: the session adds no layer of its own over it. */
     @Test
-    void attachedKeyboardRoutesToTheTargetedWindowCalls() {
+    void inputIsTheWrappedControllers() {
         RecordingController rec = new RecordingController();
         HostSession session = new HostSession(rec);
         GenericWindow game = new GenericWindow(42L, "Game", new Rectangle(0, 0, 800, 600));
 
         session.attach(game);
         assertSame(game, session.attached());
-
-        session.keyboard().keyDown(65);
-        session.keyboard().keyUp(65);
-        session.keyboard().type("hi");
-
-        assertEquals(List.of(
-            "keyDown(win=Game,65)",
-            "keyUp(win=Game,65)",
-            "typeText(win=Game,hi)"), rec.calls);
-    }
-
-    /** With nothing attached, keyboard input falls back to the window-less (focused-window) controller calls. */
-    @Test
-    void unattachedKeyboardUsesTheGlobalCalls() {
-        RecordingController rec = new RecordingController();
-        HostSession session = new HostSession(rec);
-
-        session.keyboard().keyDown(65);
-        session.keyboard().type("hi");
-
-        assertEquals(List.of("keyDown(65)", "typeText(hi)"), rec.calls);
-    }
-
-    /** Absolute motion, buttons and scroll are verbatim controller calls; a click is press-then-release. */
-    @Test
-    void pointerDelegatesRawDeviceMotion() {
-        RecordingController rec = new RecordingController();
-        HostSession session = new HostSession(rec);
-
-        session.pointer().moveAbsolute(100, 200);
-        session.pointer().click(1);
-        session.pointer().scroll(-3);
-
-        assertEquals(List.of(
-            "mouseMove(100,200)",
-            "mouseButton(1,true)",
-            "mouseButton(1,false)",
-            "scroll(-3)"), rec.calls);
-    }
-
-    /** A relative move anchors on the read-back position, then warps to position + delta (the day-one impl). */
-    @Test
-    void relativeMoveAnchorsOnReadBackPosition() {
-        RecordingController rec = new RecordingController();
-        rec.cursor = new Point(300, 300);
-        HostSession session = new HostSession(rec);
-
-        session.pointer().moveRelative(10, -5);
-
-        assertEquals(List.of("mouseMove(310,295)"), rec.calls);
-        assertEquals(new Point(300, 300), session.pointer().position());
-    }
-
-    /** When the pointer position can't be read, a relative move is skipped — never warped to the bare delta. */
-    @Test
-    void relativeMoveIsSkippedWhenPositionUnreadable() {
-        RecordingController rec = new RecordingController();
-        rec.cursor = null;
-        HostSession session = new HostSession(rec);
-
-        session.pointer().moveRelative(10, -5);
-
-        assertTrue(rec.calls.isEmpty());
+        assertSame(rec, session.controller());
     }
 
     /** Capture reads the attached window; with nothing attached there is nothing to capture. */

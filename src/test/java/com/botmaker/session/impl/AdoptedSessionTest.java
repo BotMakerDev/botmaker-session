@@ -1,5 +1,6 @@
 package com.botmaker.session.impl;
 
+import com.botmaker.session.SessionBackend;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -19,8 +20,8 @@ class AdoptedSessionTest {
     void nothingToAdoptIsNullRatherThanAnException() {
         // The caller's fallback is its own launch, so a missing offer has to be cheap and quiet — and must not even
         // touch X11 (this runs on a box with no display at all).
-        assertNull(AdoptedSession.adopt(null, null, NestedSession.Backend.GAMESCOPE));
-        assertNull(AdoptedSession.adopt("  ", "123", NestedSession.Backend.GAMESCOPE));
+        assertNull(AdoptedSession.adopt(null, null, SessionBackend.GAMESCOPE));
+        assertNull(AdoptedSession.adopt("  ", "123", SessionBackend.GAMESCOPE));
     }
 
     @Test

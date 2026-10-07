@@ -1,6 +1,6 @@
 package com.botmaker.session.remote;
 
-import com.botmaker.session.impl.NestedSession;
+import com.botmaker.session.SessionBackend;
 
 import com.botmaker.shared.Diag;
 
@@ -41,7 +41,7 @@ final class DisplayAgentProcess implements AutoCloseable {
     }
 
     /** The spawned agent, or {@code null} when neither spawn form produced a live process. */
-    static DisplayAgentProcess start(String displayName, NestedSession.Backend backend) {
+    static DisplayAgentProcess start(String displayName, SessionBackend backend) {
         File log = agentLog(displayName);
         List<List<String>> forms = new ArrayList<>();
         List<String> direct = directCommand(displayName, backend);
@@ -92,7 +92,7 @@ final class DisplayAgentProcess implements AutoCloseable {
     }
 
     /** {@code java -cp … DisplayAgent :N backend}, or {@code null} when this JVM has no usable classpath. */
-    private static List<String> directCommand(String displayName, NestedSession.Backend backend) {
+    private static List<String> directCommand(String displayName, SessionBackend backend) {
         String classpath = System.getProperty("java.class.path", "");
         Path java = Path.of(System.getProperty("java.home", ""), "bin", "java");
         if (classpath.isBlank() || !Files.isExecutable(java)) {
@@ -106,7 +106,7 @@ final class DisplayAgentProcess implements AutoCloseable {
      * This program, started again with the agent marker in front of its own arguments — the form that works
      * when there is no classpath to hand (a modular or launcher-wrapped image).
      */
-    private static List<String> reexecCommand(String displayName, NestedSession.Backend backend) {
+    private static List<String> reexecCommand(String displayName, SessionBackend backend) {
         ProcessHandle.Info info = ProcessHandle.current().info();
         String command = info.command().orElse(null);
         if (command == null) {

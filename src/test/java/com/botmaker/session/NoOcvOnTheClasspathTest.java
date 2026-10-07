@@ -73,24 +73,28 @@ class NoOcvOnTheClasspathTest {
         List<String> roots = List.of(
                 "com.botmaker.session.DesktopSession",
                 "com.botmaker.session.Capability",
-                "com.botmaker.session.ActiveSession",
+                "com.botmaker.session.Sessions",
+                "com.botmaker.session.SessionBackend",
+                "com.botmaker.session.SessionOptions",
                 "com.botmaker.session.PointerPolicy",
                 "com.botmaker.session.SessionHealth",
                 "com.botmaker.session.display.SessionBackends",
                 "com.botmaker.session.display.NestedDisplay",
                 "com.botmaker.session.display.GamescopeDisplay",
+                "com.botmaker.session.display.GamescopeHost",
                 "com.botmaker.session.display.DisplayReadiness",
+                "com.botmaker.session.display.SessionHostWindow",
                 "com.botmaker.session.impl.NestedSession",
+                "com.botmaker.session.impl.HostWindowHider",
+                "com.botmaker.session.impl.PrivateLaunch",
                 "com.botmaker.session.impl.AdoptedSession",
                 "com.botmaker.session.impl.HostSession",
                 "com.botmaker.session.impl.SessionAttachment",
-                "com.botmaker.session.impl.SessionHostWindow",
+                "com.botmaker.session.launch.LaunchIsolation",
                 "com.botmaker.session.process.SessionReaper",
                 "com.botmaker.session.process.SessionMembers",
                 "com.botmaker.session.process.SessionBus",
-                "com.botmaker.session.process.AppOutputLog",
-                "com.botmaker.session.input.ControllerPointer",
-                "com.botmaker.session.input.ControllerKeyboard");
+                "com.botmaker.session.process.AppOutputLog");
 
         for (String name : roots) {
             try {

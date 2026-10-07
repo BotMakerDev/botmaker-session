@@ -1,6 +1,7 @@
 package com.botmaker.session.display;
 
-import com.botmaker.session.impl.NestedSession;
+import com.botmaker.session.SessionBackend;
+import com.botmaker.session.SessionOptions;
 
 import com.botmaker.shared.Executables;
 import com.botmaker.shared.capture.linux.input.InputTiming;
@@ -9,11 +10,10 @@ import com.botmaker.shared.launch.LaunchKind;
 import com.botmaker.shared.launch.LaunchSpec;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Predicate;
 
 /**
- * Single-sourced choice of nested-display {@link NestedSession.Backend} for a given launch — the one place both
+ * Single-sourced choice of nested-display {@link SessionBackend} for a given launch — the one place both
  * the SDK bot runtime ({@code SessionBootstrap}) and Studio's launch surfaces agree on <em>which</em> backend a
  * target needs and whether it is installed. Living here (not in either consumer) is the repo's single-sourcing
  * rule: anything the SDK and Studio would each otherwise compute — backend choice, availability, the install
@@ -22,17 +22,18 @@ import java.util.function.Predicate;
  * <p><b>gamescope is the answer for every kind.</b> A store launcher (Steam/Epic/Heroic/Faugus) and the Proton
  * game behind it — and a native {@code exe} game — boot a real GPU stack (Electron/Chromium, Vulkan/GL). Under
  * Xephyr's <em>software</em> GL that stack aborts (the observed Heroic SIGTRAP), so those kinds have always
- * needed {@link NestedSession.Backend#GAMESCOPE}, which puts a real GPU inside the private display. The choice
+ * needed {@link SessionBackend#GAMESCOPE}, which puts a real GPU inside the private display. The choice
  * used to be kind-driven, leaving a plain {@code cli:} command on the lighter
- * {@link NestedSession.Backend#XEPHYR} — but "lighter" bought nothing and cost a second code path that only the
+ * {@link SessionBackend#XEPHYR} — but "lighter" bought nothing and cost a second code path that only the
  * least-exercised launch kinds ran: gamescope is its own window manager (no openbox to install or lose), owns
  * focus, and forces its client fullscreen, which is what makes the session's screen capture and its input
  * geometry agree. Xephyr survives only behind an explicit {@code BotSettings} pin, for bisecting a gamescope
  * problem; see {@code ROADMAP.md} for the deprecation.
  *
  * <p><b>No silent Xephyr fallback for a game.</b> When a game's required backend (gamescope) isn't on
- * {@code PATH}, {@link #availableBackendFor(LaunchSpec)} is empty — the loud-failure signal. Callers surface
- * {@link #installHint(NestedSession.Backend)} rather than falling back to a Xephyr that would crash the game.
+ * {@code PATH}, {@link #isAvailable(SessionBackend)} is false — the loud-failure signal. Callers stop with
+ * {@link #installHint(SessionBackend)} (or {@link BackendInstall}'s command) rather than falling back to a Xephyr
+ * that would crash the game.
  */
 public final class SessionBackends {
 
@@ -101,8 +102,8 @@ public final class SessionBackends {
 
     /**
      * The backend a target of this {@code spec} wants, irrespective of what's installed:
-     * {@link NestedSession.Backend#GAMESCOPE} for a game and for a {@code null} spec,
-     * {@link NestedSession.Backend#XEPHYR} for {@link LaunchKind#EMULATOR_APP EMULATOR_APP}.
+     * {@link SessionBackend#GAMESCOPE} for a game and for a {@code null} spec,
+     * {@link SessionBackend#XEPHYR} for {@link LaunchKind#EMULATOR_APP EMULATOR_APP}.
      *
      * <p><b>The emulator exception is not a fallback.</b> A Waydroid launch <em>is</em> a gamescope — the
      * child command is {@code gamescope --backend sdl … waydroid app launch <pkg>}, because Waydroid's UI is a
@@ -115,34 +116,14 @@ public final class SessionBackends {
      * measured, per-kind answer, not a degradation when gamescope is missing. Without gamescope the emulator
      * ladder is empty and the launch is refused loudly, exactly as before.
      */
-    public static NestedSession.Backend preferredBackend(LaunchSpec spec) {
+    public static SessionBackend preferredBackend(LaunchSpec spec) {
         return spec != null && spec.kind() == LaunchKind.EMULATOR_APP
-                ? NestedSession.Backend.XEPHYR
-                : NestedSession.Backend.GAMESCOPE;
+                ? SessionBackend.XEPHYR
+                : SessionBackend.GAMESCOPE;
     }
 
-    /**
-     * The {@link #preferredBackend(LaunchSpec)} for {@code spec}, but only if its host binary is actually on
-     * {@code PATH}; empty otherwise. Empty means "the backend this target needs isn't installed" — the caller's
-     * cue to fail loudly with {@link #installHint(NestedSession.Backend)}, <em>not</em> to drop to a different
-     * backend (a game on Xephyr is exactly the crash this avoids).
-     */
-    public static Optional<NestedSession.Backend> availableBackendFor(LaunchSpec spec) {
-        return availableBackendFor(spec, SessionBackends::onPath);
-    }
-
-    /**
-     * Availability against an injected {@code binaryOnPath} probe — the testable seam behind
-     * {@link #availableBackendFor(LaunchSpec)}, so a test can assert the kind→backend→availability chain without
-     * a real {@code PATH}.
-     */
-    static Optional<NestedSession.Backend> availableBackendFor(LaunchSpec spec, Predicate<String> binaryOnPath) {
-        NestedSession.Backend preferred = preferredBackend(spec);
-        return binaryOnPath.test(preferred.binaryName()) ? Optional.of(preferred) : Optional.empty();
-    }
-
-    /** Whether {@code backend}'s host binary ({@link NestedSession.Backend#binaryName()}) is on {@code PATH}. */
-    public static boolean isAvailable(NestedSession.Backend backend) {
+    /** Whether {@code backend}'s host binary ({@link SessionBackend#binaryName()}) is on {@code PATH}. */
+    public static boolean isAvailable(SessionBackend backend) {
         return onPath(backend.binaryName());
     }
 
@@ -160,17 +141,17 @@ public final class SessionBackends {
      *
      * <p>Pure, so the mapping is unit-tested without an X server.
      */
-    public static NestedSession.Options optionsFor(LaunchSpec spec, NestedSession.Backend backend,
+    public static SessionOptions optionsFor(LaunchSpec spec, SessionBackend backend,
                                                    int width, int height) {
-        NestedSession.Options options = switch (backend) {
-            case GAMESCOPE -> NestedSession.Options.gamescope(width, height);
-            case XEPHYR -> NestedSession.Options.xephyr(width, height);
+        SessionOptions options = switch (backend) {
+            case GAMESCOPE -> SessionOptions.gamescope(width, height);
+            case XEPHYR -> SessionOptions.xephyr(width, height);
         };
         boolean emulator = spec != null && spec.kind() == LaunchKind.EMULATOR_APP;
         return emulator ? options.withoutWindowManager() : options;
     }
 
-    /** The window manager to run inside a {@link NestedSession.Backend#XEPHYR} display, when it is installed. */
+    /** The window manager to run inside a {@link SessionBackend#XEPHYR} display, when it is installed. */
     static final List<String> DEFAULT_XEPHYR_WM = List.of("openbox", "--sm-disable");
 
     /**
@@ -188,13 +169,13 @@ public final class SessionBackends {
      * <p>An absent openbox is not an error: {@code NestedSession} degrades to a WM-less display with a trace,
      * the same behaviour as before this default existed.
      */
-    public static List<String> windowManagerFor(NestedSession.Backend backend) {
+    public static List<String> windowManagerFor(SessionBackend backend) {
         return windowManagerFor(backend, SessionBackends::onPath);
     }
 
-    /** {@link #windowManagerFor(NestedSession.Backend)} against an injected {@code PATH} probe, for tests. */
-    static List<String> windowManagerFor(NestedSession.Backend backend, Predicate<String> binaryOnPath) {
-        if (backend != NestedSession.Backend.XEPHYR) {
+    /** {@link #windowManagerFor(SessionBackend)} against an injected {@code PATH} probe, for tests. */
+    static List<String> windowManagerFor(SessionBackend backend, Predicate<String> binaryOnPath) {
+        if (backend != SessionBackend.XEPHYR) {
             return List.of();
         }
         return binaryOnPath.test(DEFAULT_XEPHYR_WM.get(0)) ? DEFAULT_XEPHYR_WM : List.of();
@@ -202,7 +183,7 @@ public final class SessionBackends {
 
     /**
      * How a display on {@code backend} interprets an absolute pointer warp — the same single-sourcing rule as
-     * {@link #windowManagerFor(NestedSession.Backend)}: the quirk is a property of the backend, so it is decided
+     * {@link #windowManagerFor(SessionBackend)}: the quirk is a property of the backend, so it is decided
      * once here rather than rediscovered by the SDK and Studio.
      *
      * <p>gamescope's embedded Xwayland routes injected motion through the focused surface, so an
@@ -210,15 +191,15 @@ public final class SessionBackends {
      * {@code (2,2)} and every click landed 2px off target until the origin was subtracted. Xephyr — like every
      * real X server — is plain {@link PointerWarp#ROOT_ABSOLUTE}. See {@link PointerWarp} for the measurements.
      */
-    public static PointerWarp pointerWarpFor(NestedSession.Backend backend) {
-        return backend == NestedSession.Backend.GAMESCOPE
+    public static PointerWarp pointerWarpFor(SessionBackend backend) {
+        return backend == SessionBackend.GAMESCOPE
                 ? PointerWarp.FOCUS_RELATIVE
                 : PointerWarp.ROOT_ABSOLUTE;
     }
 
     /**
      * How long a session's backend pauses around a click or keystroke — decided here for the same reason
-     * {@link #pointerWarpFor(NestedSession.Backend)} is: it is a property of what a session drives, not of the
+     * {@link #pointerWarpFor(SessionBackend)} is: it is a property of what a session drives, not of the
      * consumer driving it.
      *
      * <p><b>Why longer than the host default.</b> {@code InputTiming.DEFAULT}'s 12 ms press hold is tuned for
@@ -230,11 +211,11 @@ public final class SessionBackends {
      * <p>Both backends get the same answer today; it takes the backend anyway because the question is a
      * per-backend one, and gamescope's compositor may yet turn out to want different pacing from Xephyr's.
      */
-    public static InputTiming inputTimingFor(NestedSession.Backend backend) {
+    public static InputTiming inputTimingFor(SessionBackend backend) {
         return SESSION_TIMING;
     }
 
-    /** ~40 ms press hold — two frames at 60 fps. See {@link #inputTimingFor(NestedSession.Backend)}. */
+    /** ~40 ms press hold — two frames at 60 fps. See {@link #inputTimingFor(SessionBackend)}. */
     static final InputTiming SESSION_TIMING = InputTiming.DEFAULT.withPressHold(40);
 
     /**
@@ -249,7 +230,7 @@ public final class SessionBackends {
      * kept because a bus is the one part of bring-up that can be turned off without losing the display
      * isolation, which makes it the natural thing to bisect when a launcher misbehaves.
      */
-    public static boolean usesPrivateBus(NestedSession.Options options) {
+    public static boolean usesPrivateBus(SessionOptions options) {
         return options == null || options.privateBus();
     }
 
@@ -258,7 +239,7 @@ public final class SessionBackends {
      * isn't installed. gamescope carries the "real GPU in the private display" rationale (the reason a game
      * can't just fall back to Xephyr); Xephyr the equivalent 2D note.
      */
-    public static String installHint(NestedSession.Backend backend) {
+    public static String installHint(SessionBackend backend) {
         return switch (backend) {
             case GAMESCOPE -> "install gamescope to run games in a private background display "
                     + "(it provides a real GPU inside the nested display; Xephyr's software GL crashes games)";

@@ -33,7 +33,7 @@ class AdoptedSessionLiveTest {
     @Test
     void aSecondConsumerJoinsTheSameDisplayAndLetsGoWithoutReapingIt() throws Exception {
         assumeLive();
-        NestedSession owner = NestedSession.start(NestedSession.Options.xephyr(800, 600));
+        NestedSession owner = NestedSession.start(com.botmaker.session.SessionOptions.xephyr(800, 600));
         try {
             owner.launch(LaunchSpec.parse("cli:xterm -e sleep 300"));
             GenericWindow ownerWindow = owner.attached();

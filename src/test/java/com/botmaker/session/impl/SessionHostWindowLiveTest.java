@@ -1,6 +1,9 @@
 package com.botmaker.session.impl;
 
+import com.botmaker.session.SessionBackend;
+import com.botmaker.session.SessionOptions;
 import com.botmaker.session.SessionStartException;
+import com.botmaker.session.display.SessionHostWindow;
 
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeControllerFactory;
@@ -196,15 +199,15 @@ class SessionHostWindowLiveTest {
     }
 
     /** The backend under test — the frame scheduler is the thing being measured, so it is a knob, not a constant. */
-    private static NestedSession.Backend backend() {
-        return NestedSession.Backend.fromId(System.getProperty("botmaker.live.backend", "xephyr")).orElseThrow();
+    private static SessionBackend backend() {
+        return SessionBackend.fromId(System.getProperty("botmaker.live.backend", "xephyr")).orElseThrow();
     }
 
     private static NestedSession startSession() throws SessionStartException {
         assumeTrue(onPath(backend().binaryName()), "needs " + backend().binaryName() + " on PATH");
-        return NestedSession.start(backend() == NestedSession.Backend.GAMESCOPE
-            ? NestedSession.Options.gamescope(800, 600)
-            : NestedSession.Options.xephyr(800, 600));
+        return NestedSession.start(backend() == SessionBackend.GAMESCOPE
+            ? SessionOptions.gamescope(800, 600)
+            : SessionOptions.xephyr(800, 600));
     }
 
     /**

@@ -11,10 +11,10 @@ package com.botmaker.session;
  */
 public enum Capability {
 
-    /** Pointer can be moved to an absolute screen coordinate ({@link SessionPointer#moveAbsolute}). */
+    /** Pointer can be moved to an absolute screen coordinate ({@code controller().mouseMove}). */
     ABSOLUTE_POINTER,
 
-    /** Pointer can be moved by a relative delta ({@link SessionPointer#moveRelative}) — what mouselook reads. */
+    /** Pointer can be moved by a relative delta ({@code controller().mouseMoveRelative}) — what mouselook reads. */
     RELATIVE_POINTER,
 
     /**

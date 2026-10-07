@@ -1,7 +1,8 @@
 package com.botmaker.session.remote;
 
 import com.botmaker.session.display.SessionBackends;
-import com.botmaker.session.impl.NestedSession;
+import com.botmaker.session.SessionBackend;
+import com.botmaker.session.display.SessionHostWindow;
 
 import com.botmaker.shared.Diag;
 import com.botmaker.shared.capture.GenericWindow;
@@ -49,7 +50,7 @@ public final class LocalDisplay implements DisplayLink {
      * Open {@code displayName} in this process, or return {@code null} when it doesn't accept a connection.
      * Never throws: the caller's fallback for "no display" is always cheaper than an exception here.
      */
-    public static LocalDisplay open(String displayName, NestedSession.Backend backend) {
+    public static LocalDisplay open(String displayName, SessionBackend backend) {
         if (displayName == null || displayName.isBlank()) {
             return null;
         }
@@ -171,7 +172,7 @@ public final class LocalDisplay implements DisplayLink {
 
     @Override
     public int mappedCount() {
-        return closed ? -1 : com.botmaker.session.impl.SessionHostWindow.mappedCountOn(displayName);
+        return closed ? -1 : SessionHostWindow.mappedCountOn(displayName);
     }
 
     @Override

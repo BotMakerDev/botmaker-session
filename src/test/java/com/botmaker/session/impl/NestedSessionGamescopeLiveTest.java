@@ -1,6 +1,8 @@
 package com.botmaker.session.impl;
 
 import com.botmaker.session.Capability;
+import com.botmaker.session.SessionBackend;
+import com.botmaker.session.SessionOptions;
 import com.botmaker.session.display.DisplayReadiness;
 import com.botmaker.session.display.GamescopeDisplay;
 
@@ -21,7 +23,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The gamescope counterpart to {@link NestedSessionLiveTest}: the same background-input proof, run against the
- * {@link NestedSession.Backend#GAMESCOPE} display server instead of Xephyr. gamescope embeds its own Xwayland
+ * {@link SessionBackend#GAMESCOPE} display server instead of Xephyr. gamescope embeds its own Xwayland
  * on a real GPU, so this is the harness the {@link GamescopeDisplay} "unverified on the dev box" note asks for —
  * it exercises the standalone-host bring-up (stderr display-number parsing, {@link DisplayReadiness}), launches
  * a client into {@code :N}, drives that display's private pointer without moving the real {@code :0} cursor,
@@ -80,13 +82,13 @@ class NestedSessionGamescopeLiveTest {
                 //     now subtracts the focus origin (PointerWarp.FOCUS_RELATIVE), which is why this asserts the
                 //     exact point — the tolerance is kept only to absorb the one-frame settle, not an offset.
                 Point target = new Point(640, 360);
-                session.pointer().moveAbsolute(target.x, target.y);
+                session.controller().mouseMove(target.x, target.y);
                 Point onNested = awaitPointerNear(session, target, 0, 2_000);
                 assertNotNull(onNested, "should be able to read the :N pointer");
                 assertEquals(target, onNested,
                     "the :N pointer should have landed exactly on " + target + " once the focus-relative warp "
                         + "correction is applied, was " + onNested);
-                session.pointer().click(1);
+                session.controller().click(target.x, target.y, 1);
 
                 // Capture flows through the :N-bound controller. This used to take the whole JVM down: the
                 // capture ladder's root-crop rung asked for a rect hanging 2px off the root (gamescope's focus
@@ -122,7 +124,7 @@ class NestedSessionGamescopeLiveTest {
         long deadline = System.currentTimeMillis() + timeoutMs;
         Point last = null;
         while (System.currentTimeMillis() < deadline) {
-            last = session.pointer().position();
+            last = session.controller().cursorPosition();
             if (last != null && near(last, target, tolerance)) {
                 return last;
             }
@@ -146,15 +148,15 @@ class NestedSessionGamescopeLiveTest {
             "opt-in live test — run with -Dbotmaker.live=true on a real gamescope/GPU box");
         String display = System.getenv("DISPLAY");
         assumeTrue(display != null && !display.isBlank(), "needs a DISPLAY");
-        assumeTrue(onPath(NestedSession.Backend.GAMESCOPE.binaryName()), "needs gamescope on PATH");
+        assumeTrue(onPath(SessionBackend.GAMESCOPE.binaryName()), "needs gamescope on PATH");
     }
 
     /**
      * The default standalone gamescope options at {@code width}x{@code height}, unless {@code -Dbotmaker.gamescope.args}
      * overrides the whole argv (space-split) — the {@link GamescopeDisplay} bring-up note's per-box escape hatch.
      */
-    private static NestedSession.Options gamescopeOptions(int width, int height) {
-        NestedSession.Options base = NestedSession.Options.gamescope(width, height);
+    private static SessionOptions gamescopeOptions(int width, int height) {
+        SessionOptions base = SessionOptions.gamescope(width, height);
         String override = System.getProperty("botmaker.gamescope.args");
         if (override == null || override.isBlank()) {
             return base;

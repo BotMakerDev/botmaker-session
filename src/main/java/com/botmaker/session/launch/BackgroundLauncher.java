@@ -1,13 +1,13 @@
 package com.botmaker.session.launch;
 
-import com.botmaker.shared.capture.GenericWindow;
-import com.botmaker.shared.launch.LaunchIsolation;
-import com.botmaker.shared.launch.LaunchSpec;
-import com.botmaker.session.impl.AdoptedSession;
+import com.botmaker.session.PrivateSession;
+import com.botmaker.session.SessionBackend;
+import com.botmaker.session.SessionOptions;
+import com.botmaker.session.Sessions;
 import com.botmaker.session.display.SessionBackends;
-import com.botmaker.session.impl.NestedSession;
+import com.botmaker.shared.capture.GenericWindow;
+import com.botmaker.shared.launch.LaunchSpec;
 
-import java.awt.*;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -15,8 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The one place a game is brought up in a private nested display ({@code :N}) and <em>held</em>, shared by
- * both surfaces that background a launch: Studio's Launch buttons ({@code QuickLaunch}) and the Remote Pilot's
- * "Background mode" box ({@link com.botmaker.studio.services.pilot.NestedSessionLauncher}). Living here — rather
+ * both surfaces that background a launch: the SDK plugin's ▶ Launch buttons ({@code QuickLaunch}) and the Remote
+ * Pilot's "Background mode" box ({@code NestedSessionLauncher}). Living here — rather
  * than inside the pilot, which is where the bring-up used to live — is what stops the two disagreeing: click
  * "▶ Launch" and the pilot's Stop/status reflect the same live session, because there is exactly one holder per
  * project (keyed by the resources dir, {@link #forProject}).
@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * so a game launched from the ▶ Launch toolbar was invisible to the pilot, which then streamed and drove the
  * user's real {@code :0} desktop. A pull cannot be registered too late.
  *
- * <p>The bring-up runs <b>off the FX thread</b> ({@code NestedSession.start} spawns Xephyr/gamescope and blocks
+ * <p>The bring-up runs <b>off the FX thread</b> ({@link Sessions#startPrivate} spawns Xephyr/gamescope and blocks
  * on display readiness, then {@code launch} blocks up to the window timeout), reporting back through
  * {@code report} on the FX thread. Only one session is held at a time; starting a second while one is live is
  * refused rather than silently leaking the first. When the game never maps a window on {@code :N} the bring-up
@@ -60,7 +60,7 @@ public final class BackgroundLauncher implements AutoCloseable {
     }
 
     /** The live nested session, or {@code null} when none is running. Written on the worker, read on FX. */
-    private volatile NestedSession active;
+    private volatile PrivateSession active;
     private volatile SessionBackends.DisplaySize activeSize;
 
     private BackgroundLauncher() {}
@@ -71,10 +71,11 @@ public final class BackgroundLauncher implements AutoCloseable {
      * <p>This is what makes "launch it once, then run the bot" work. Without it the bot brought up a *second*
      * private display and launched the game into it — and every store launcher is single-instance, so that launch
      * was handed to the copy already running in this session and the game appeared on a display nobody was
-     * watching. The shape of the hand-off belongs to shared ({@code AdoptedSession}), which also reads it.
+     * watching. The shape of the hand-off is {@link Sessions#handoffArguments}, beside
+     * {@link Sessions#offered()}, which reads it.
      */
     public List<String> handoffArguments() {
-        return AdoptedSession.handoffArguments(active);
+        return Sessions.handoffArguments(active);
     }
 
     /** True while a nested session is live (so a UI can show Stop rather than Start). */
@@ -90,7 +91,7 @@ public final class BackgroundLauncher implements AutoCloseable {
      * that is precisely how the pilot came to stream {@code :0} while a game ran on {@code :N} — its
      * subscription lived in a UI object the user hadn't opened. See {@code PilotSession}.
      */
-    public NestedSession session() {
+    public PrivateSession session() {
         return active;
     }
 
@@ -102,7 +103,7 @@ public final class BackgroundLauncher implements AutoCloseable {
      * wedged the host pointer. {@code 0} is an ordinary answer for the first seconds of a session.
      */
     public long hostWindowId() {
-        NestedSession session = active;
+        PrivateSession session = active;
         return session == null ? 0 : session.hostWindowId();
     }
 
@@ -115,19 +116,19 @@ public final class BackgroundLauncher implements AutoCloseable {
      * size: whatever it holds is invisible the moment {@code active} is null.
      */
     public SessionBackends.DisplaySize activeSize() {
-        NestedSession session = active;
+        PrivateSession session = active;
         return session == null ? null : activeSize;
     }
 
     /** The live session's display (e.g. {@code :3}), or {@code null} when none is running. For a status line. */
     public String activeDisplay() {
-        NestedSession session = active;
+        PrivateSession session = active;
         return session == null ? null : session.displayName();
     }
 
     /** Title of the window the live session attached, or {@code null} when none is running / nothing attached. */
     public String attachedTitle() {
-        NestedSession session = active;
+        PrivateSession session = active;
         if (session == null) {
             return null;
         }
@@ -140,11 +141,11 @@ public final class BackgroundLauncher implements AutoCloseable {
      * window isn't known yet. The pair is one call because a caller only ever wants an id it can then look at.
      *
      * <p>For Studio's overlay editor, which draws over the session rather than over a window on the real desktop.
-     * See {@link NestedSession#hostWindowId} for why the id and not a title, and why {@code 0} is an ordinary
+     * See {@link PrivateSession#hostWindowId} for why the id and not a title, and why {@code 0} is an ordinary
      * answer for the first seconds of a session rather than a failure.
      */
     public long revealHostWindow() {
-        NestedSession session = active;
+        PrivateSession session = active;
         if (session == null) {
             return 0;
         }
@@ -157,7 +158,7 @@ public final class BackgroundLauncher implements AutoCloseable {
      * backend (via {@code SessionBackends}) and confirmed a target — this method owns only the bring-up and the
      * held session. Runs off the FX thread; {@code report} is marshalled back onto it.
      */
-    public void start(NestedSession.Backend backend, LaunchSpec spec, int width, int height, Report report) {
+    public void start(SessionBackend backend, LaunchSpec spec, int width, int height, Report report) {
         if (active != null) {
             report.accept(false, "A background session is already running — stop it first (Remote Pilot ▸ Stop).");
             return;
@@ -177,10 +178,10 @@ public final class BackgroundLauncher implements AutoCloseable {
         worker.start();
     }
 
-    private void runStart(NestedSession.Backend backend, int width, int height, LaunchSpec spec, Report report) {
-        NestedSession session = null;
+    private void runStart(SessionBackend backend, int width, int height, LaunchSpec spec, Report report) {
+        PrivateSession session = null;
         try {
-            session = NestedSession.start(optionsFor(spec, backend, width, height));
+            session = Sessions.startPrivate(optionsFor(spec, backend, width, height));
             session.launch(spec);
             GenericWindow window = session.attached();
             if (window == null) {
@@ -226,7 +227,7 @@ public final class BackgroundLauncher implements AutoCloseable {
      * <p>A poll rather than a callback because that is what the fact is — a process that exited. The interval only
      * bounds how long a dead session lingers; it costs one {@code isAlive()} per tick.
      */
-    private void watch(NestedSession session) {
+    private void watch(PrivateSession session) {
         Thread watchdog = new Thread(() -> {
             while (active == session) {
                 try {
@@ -254,7 +255,7 @@ public final class BackgroundLauncher implements AutoCloseable {
      * the session go away without being told.
      */
     public void stop() {
-        NestedSession session = active;
+        PrivateSession session = active;
         active = null;
         if (session != null) {
             try {
@@ -276,7 +277,7 @@ public final class BackgroundLauncher implements AutoCloseable {
      * bootstrap; only the fallback is ours. Kept package-visible and pure so it is unit-tested without a live
      * X server.
      */
-    static NestedSession.Options optionsFor(LaunchSpec spec, NestedSession.Backend backend,
+    static SessionOptions optionsFor(LaunchSpec spec, SessionBackend backend,
                                             int width, int height) {
         SessionBackends.DisplaySize size = SessionBackends.sizeFor(width, height);
         return SessionBackends.optionsFor(spec, backend, size.width(), size.height());

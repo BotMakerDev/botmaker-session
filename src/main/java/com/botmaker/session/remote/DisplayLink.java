@@ -1,6 +1,7 @@
 package com.botmaker.session.remote;
 
-import com.botmaker.session.impl.NestedSession;
+import com.botmaker.session.PrivateSession;
+import com.botmaker.session.SessionBackend;
 
 import com.botmaker.session.PaintedSurface;
 import com.botmaker.session.Preview;
@@ -29,7 +30,7 @@ import java.util.function.Supplier;
  * <p>So the connection moves out of process. {@link RemoteDisplay} runs a {@link DisplayAgent} child that holds
  * the {@code :N} handles and answers over a pipe; when {@code :N} dies it is the <em>agent</em> that Xlib exits,
  * and the proxy simply reads EOF and reports the display gone through the path that already existed
- * ({@link NestedSession#closeIfDead()}). {@link LocalDisplay} keeps the old in-process behaviour for the cases
+ * ({@link PrivateSession#closeIfDead()}). {@link LocalDisplay} keeps the old in-process behaviour for the cases
  * that want it — the live tests, and a fallback when an agent can't be spawned at all.
  *
  * <p>Beyond {@link NativeController} it adds the reads a session used to make against its own EWMH connection
@@ -182,7 +183,7 @@ public interface DisplayLink extends NativeController, AutoCloseable {
      * @param backend the display's backend, which fixes the pointer-warp convention and input timing
      * @return a usable link, or {@code null} when even the local fallback could not open the display
      */
-    static DisplayLink open(String displayName, NestedSession.Backend backend) {
+    static DisplayLink open(String displayName, SessionBackend backend) {
         if (Boolean.getBoolean(LOCAL_PROPERTY)) {
             return LocalDisplay.open(displayName, backend);
         }

@@ -1,8 +1,5 @@
 package com.botmaker.session;
 
-import com.botmaker.session.impl.HostSession;
-import com.botmaker.session.impl.NestedSession;
-
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
 import com.botmaker.session.video.VideoPacket;
@@ -17,14 +14,14 @@ import java.util.Set;
 /**
  * One display a bot drives — the seam that lets the <em>same</em> bot code target either the user's real
  * desktop or a private nested {@code :N} server without knowing which. It <b>wraps</b> the existing
- * {@link NativeController} + input-backend stack rather than replacing it: a {@link HostSession} wraps the
- * default {@code :0} controller (today's behaviour, unchanged); a future {@code NestedSession} (Phase 2) wraps
- * a controller bound to {@code :N} and adds the {@link Capability#BACKGROUND_CLICK}/{@link Capability#ISOLATED_FOCUS}
- * guarantees the host session can't make.
+ * {@link NativeController} stack rather than replacing it: the host session ({@link Sessions#host()}) wraps the
+ * default {@code :0} controller; a private one ({@link Sessions#startPrivate}, {@link PrivateSession}) wraps a
+ * controller bound to {@code :N} and adds the {@link Capability#BACKGROUND_CLICK}/{@link Capability#ISOLATED_FOCUS}
+ * guarantees the host session can't make. Input goes through {@link #controller()}, under {@link PointerPolicy}.
  *
  * <p>A session either {@link #attach(GenericWindow) attaches} to an existing window or {@link #launch launches}
  * a fresh target into itself; either way the attached window is where {@link #capture()} and the
- * window-targeted input paths point. Closing a session releases its resources (and, for a nested one, reaps
+ * window-targeted input paths point. Closing a session releases its resources (and, for a private one, reaps
  * the whole process tree).
  */
 public interface DesktopSession extends AutoCloseable {
@@ -40,11 +37,8 @@ public interface DesktopSession extends AutoCloseable {
     /** The session's screen bounds (origin + size), or a zero rectangle if it can't be determined. */
     Rectangle screen();
 
-    /** This session's pointer. */
-    SessionPointer pointer();
-
-    /** This session's keyboard. */
-    SessionKeyboard keyboard();
+    /** The X display this session drives, e.g. {@code :3} — for a log line or a status. */
+    String displayName();
 
     /**
      * Make {@code window} the session's active target — the window {@link #capture()} reads and the
@@ -148,7 +142,7 @@ public interface DesktopSession extends AutoCloseable {
      * Xwayland. Every X11 read then succeeds and hands back a display with nothing on it: black pixels, no
      * error, nothing to distinguish it from a game that happens to be on a black screen. Consumers that pick a
      * capture source (the pilot's route resolver, the SDK's
-     * ambient {@link com.botmaker.session.ActiveSession} source) need to know that <em>before</em> they commit
+     * ambient session source, held by its {@code BotSession}) need to know that <em>before</em> they commit
      * to the session, which is why this is a question the session answers rather than a probe each of them
      * rebuilds — and rebuilds differently.
      *

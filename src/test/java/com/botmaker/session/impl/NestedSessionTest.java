@@ -1,5 +1,7 @@
 package com.botmaker.session.impl;
 
+import com.botmaker.session.SessionBackend;
+import com.botmaker.session.SessionOptions;
 import com.botmaker.session.display.GamescopeDisplay;
 import com.botmaker.session.display.NestedDisplay;
 import com.botmaker.session.display.SessionBackends;
@@ -19,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit coverage for the parts of {@link NestedSession} that don't need a live X server: the launch-kind → argv
- * mapping (which kinds can be handed a private {@code DISPLAY}) and the immutable {@link NestedSession.Options}
+ * mapping (which kinds can be handed a private {@code DISPLAY}) and the immutable {@link SessionOptions}
  * builder. The end-to-end supervisor behaviour (Xephyr allocation, XTest isolation, tree reaping) is verified
  * by the guarded live suite — {@link NestedSessionLiveTest} and {@link NestedSessionSoakTest} — which runs on
  * a real box and under {@code Xvfb} in CI ({@code .github/workflows/session-live.yml}), not by this pure unit.
@@ -45,27 +47,27 @@ class NestedSessionTest {
 
     @Test
     void storeKindsGetTheLongWindowBudgetAndOwnChildrenTheShortOne() {
-        NestedSession.Options options = NestedSession.Options.gamescope(1280, 720);
+        SessionOptions options = SessionOptions.gamescope(1280, 720);
         // A launcher kind: we're waiting on the game Heroic/Steam starts, which can take minutes on a cold prefix.
-        assertEquals(NestedSession.LAUNCHER_WINDOW_TIMEOUT_MS,
-            NestedSession.windowTimeoutFor(LaunchSpec.parse("heroic:AbC123"), options));
-        assertEquals(NestedSession.LAUNCHER_WINDOW_TIMEOUT_MS,
-            NestedSession.windowTimeoutFor(LaunchSpec.parse("steam:570"), options));
+        assertEquals(PrivateLaunch.LAUNCHER_WINDOW_TIMEOUT_MS,
+            PrivateLaunch.windowTimeoutFor(LaunchSpec.parse("heroic:AbC123"), options));
+        assertEquals(PrivateLaunch.LAUNCHER_WINDOW_TIMEOUT_MS,
+            PrivateLaunch.windowTimeoutFor(LaunchSpec.parse("steam:570"), options));
         // exe:/cli: ARE the process we spawned — no window in 20s means no window.
-        assertEquals(NestedSession.WINDOW_TIMEOUT_MS,
-            NestedSession.windowTimeoutFor(LaunchSpec.parse("exe:/opt/game/run.sh"), options));
-        assertEquals(NestedSession.WINDOW_TIMEOUT_MS, NestedSession.windowTimeoutFor(null, options));
+        assertEquals(PrivateLaunch.WINDOW_TIMEOUT_MS,
+            PrivateLaunch.windowTimeoutFor(LaunchSpec.parse("exe:/opt/game/run.sh"), options));
+        assertEquals(PrivateLaunch.WINDOW_TIMEOUT_MS, PrivateLaunch.windowTimeoutFor(null, options));
     }
 
     @Test
     void anExplicitWindowTimeoutOverridesThePerKindDefault() {
-        NestedSession.Options tuned = NestedSession.Options.gamescope(1280, 720).withWindowTimeout(300_000);
+        SessionOptions tuned = SessionOptions.gamescope(1280, 720).withWindowTimeout(300_000);
         assertEquals(300_000, tuned.windowTimeoutMs());
-        assertEquals(300_000, NestedSession.windowTimeoutFor(LaunchSpec.parse("exe:/opt/game/run.sh"), tuned));
+        assertEquals(300_000, PrivateLaunch.windowTimeoutFor(LaunchSpec.parse("exe:/opt/game/run.sh"), tuned));
         // Zero/negative means "no override" rather than "wait for nothing".
         assertEquals(0, tuned.withWindowTimeout(-1).windowTimeoutMs());
-        assertEquals(NestedSession.WINDOW_TIMEOUT_MS,
-            NestedSession.windowTimeoutFor(LaunchSpec.parse("exe:/opt/game/run.sh"), tuned.withWindowTimeout(0)));
+        assertEquals(PrivateLaunch.WINDOW_TIMEOUT_MS,
+            PrivateLaunch.windowTimeoutFor(LaunchSpec.parse("exe:/opt/game/run.sh"), tuned.withWindowTimeout(0)));
     }
 
     @Test
@@ -78,35 +80,35 @@ class NestedSessionTest {
     @Test
     void theWindowManagerIsResolvedFromTheBackendUnlessStated() {
         // Stated wins, whatever the backend policy would have been.
-        NestedSession.Options stated = NestedSession.Options.xephyr(800, 600).withWindowManager("i3");
+        SessionOptions stated = SessionOptions.xephyr(800, 600).withWindowManager("i3");
         assertEquals(List.of("i3"), NestedSession.windowManagerCommandFor(stated));
         // Stated "none" is an opt-out of the Xephyr default, not an absence of an opinion.
         assertTrue(NestedSession.windowManagerCommandFor(
-            NestedSession.Options.xephyr(800, 600).withoutWindowManager()).isEmpty());
+            SessionOptions.xephyr(800, 600).withoutWindowManager()).isEmpty());
         // Unstated defers to the backend policy — which for gamescope is always none.
-        assertTrue(NestedSession.windowManagerCommandFor(NestedSession.Options.gamescope(1280, 720)).isEmpty());
+        assertTrue(NestedSession.windowManagerCommandFor(SessionOptions.gamescope(1280, 720)).isEmpty());
         // …and it refuses one even when asked: gamescope already manages its Xwayland.
         assertTrue(NestedSession.windowManagerCommandFor(
-            NestedSession.Options.gamescope(1280, 720).withWindowManager("openbox")).isEmpty());
+            SessionOptions.gamescope(1280, 720).withWindowManager("openbox")).isEmpty());
         // Unstated on Xephyr is whatever SessionBackends says for this machine (openbox when installed).
-        assertEquals(SessionBackends.windowManagerFor(NestedSession.Backend.XEPHYR),
-            NestedSession.windowManagerCommandFor(NestedSession.Options.xephyr(800, 600)));
+        assertEquals(SessionBackends.windowManagerFor(SessionBackend.XEPHYR),
+            NestedSession.windowManagerCommandFor(SessionOptions.xephyr(800, 600)));
     }
 
     @Test
     void optionsAreImmutableAndCarryTheirConfig() {
-        NestedSession.Options base = NestedSession.Options.xephyr(1280, 720);
+        SessionOptions base = SessionOptions.xephyr(1280, 720);
         assertEquals(1280, base.width());
         assertEquals(720, base.height());
         assertTrue(base.windowManagerCommand().isEmpty());
         assertTrue(base.extraEnv().isEmpty());
 
-        NestedSession.Options withWm = base.withWindowManager("openbox", "--sm-disable");
+        SessionOptions withWm = base.withWindowManager("openbox", "--sm-disable");
         assertEquals(List.of("openbox", "--sm-disable"), withWm.windowManagerCommand());
         // The builder returns a new value; the base is untouched.
         assertTrue(base.windowManagerCommand().isEmpty());
 
-        NestedSession.Options withEnv = base.withExtraEnv(Map.of("WINEPREFIX", "/tmp/pfx"));
+        SessionOptions withEnv = base.withExtraEnv(Map.of("WINEPREFIX", "/tmp/pfx"));
         assertEquals("/tmp/pfx", withEnv.extraEnv().get("WINEPREFIX"));
         // Defensive copy: mutating the returned view is refused.
         assertThrows(UnsupportedOperationException.class,
@@ -116,30 +118,30 @@ class NestedSessionTest {
     @Test
     void backendNamesTheBinaryItSpawns() {
         // The PATH probe in Studio's pilot UI keys off these — they must equal what NestedDisplay/GamescopeDisplay run.
-        assertEquals("Xephyr", NestedSession.Backend.XEPHYR.binaryName());
-        assertEquals("gamescope", NestedSession.Backend.GAMESCOPE.binaryName());
+        assertEquals("Xephyr", SessionBackend.XEPHYR.binaryName());
+        assertEquals("gamescope", SessionBackend.GAMESCOPE.binaryName());
     }
 
     @Test
     void backendPicksTheDisplayServer() {
-        NestedSession.Options xephyr = NestedSession.Options.xephyr(1280, 720);
-        assertEquals(NestedSession.Backend.XEPHYR, xephyr.backend());
+        SessionOptions xephyr = SessionOptions.xephyr(1280, 720);
+        assertEquals(SessionBackend.XEPHYR, xephyr.backend());
 
-        NestedSession.Options gs = NestedSession.Options.gamescope(1920, 1080);
-        assertEquals(NestedSession.Backend.GAMESCOPE, gs.backend());
+        SessionOptions gs = SessionOptions.gamescope(1920, 1080);
+        assertEquals(SessionBackend.GAMESCOPE, gs.backend());
         // Default gamescope argv is standalone (no "--" child) and carries the requested size twice: the output
         // window (-W/-H) and the internal resolution apps see (-w/-h), so capture is 1:1 with the templates.
         // --force-windows-fullscreen makes the game fill the display the click coordinates are computed against;
         // --expose-wayland lets the session host a Wayland-only client (Waydroid) that has no X11 path at all.
         assertEquals(List.of("gamescope", "-W", "1920", "-H", "1080", "-w", "1920", "-h", "1080",
                 "--force-windows-fullscreen", "--expose-wayland"),
-            gs.displayServerCommand());
-        assertTrue(gs.displayServerCommand().stream().noneMatch("--"::equals));
+            NestedSession.displayServerCommand(gs));
+        assertTrue(NestedSession.displayServerCommand(gs).stream().noneMatch("--"::equals));
 
         // An explicit override wins over the default argv.
-        NestedSession.Options custom = gs.withGamescopeCommand("gamescope", "--backend", "sdl", "-W", "800", "-H", "600");
+        SessionOptions custom = gs.withGamescopeCommand("gamescope", "--backend", "sdl", "-W", "800", "-H", "600");
         assertEquals(List.of("gamescope", "--backend", "sdl", "-W", "800", "-H", "600"),
-            custom.displayServerCommand());
+            NestedSession.displayServerCommand(custom));
     }
 
     @Test

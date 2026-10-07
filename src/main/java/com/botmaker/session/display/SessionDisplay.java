@@ -2,14 +2,12 @@ package com.botmaker.session.display;
 
 import com.botmaker.session.Capability;
 import com.botmaker.session.SessionHealth;
-import com.botmaker.session.impl.NestedSession;
-import com.botmaker.session.impl.SessionHostWindow;
 
 /**
- * A private display a nested session owns — the X server the bot's {@link NestedSession} drives so its global
+ * A private display a nested session owns — the X server the bot's {@code NestedSession} drives so its global
  * pointer and focus are the bot's alone. Two implementations sit behind this seam: {@link NestedDisplay}
  * (Xephyr, the cheap 2D host) and {@link GamescopeDisplay} (gamescope, the hardware-3D host with an embedded
- * Xwayland). {@link NestedSession} depends only on this narrow surface, so the same supervisor — launch the
+ * Xwayland). {@code NestedSession} depends only on this narrow surface, so the same supervisor — launch the
  * game, find its window, inject XTest, reap the tree — drives both backends unchanged.
  *
  * <p>The one thing that genuinely differs between the two, beyond how the server is spawned, is 3D capability:

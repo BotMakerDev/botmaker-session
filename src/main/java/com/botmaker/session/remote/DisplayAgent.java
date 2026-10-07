@@ -3,7 +3,7 @@ package com.botmaker.session.remote;
 import com.botmaker.session.PaintedSurface;
 import com.botmaker.session.Preview;
 import com.botmaker.session.PreviewFrame;
-import com.botmaker.session.impl.NestedSession;
+import com.botmaker.session.SessionBackend;
 
 import com.botmaker.shared.capture.GenericWindow;
 
@@ -87,9 +87,9 @@ public final class DisplayAgent {
             StandardCharsets.UTF_8);
         System.setOut(console);
         String displayName = args[1];
-        NestedSession.Backend backend = args.length >= 3
-            ? NestedSession.Backend.fromId(args[2]).orElse(NestedSession.Backend.GAMESCOPE)
-            : NestedSession.Backend.GAMESCOPE;
+        SessionBackend backend = args.length >= 3
+            ? SessionBackend.fromId(args[2]).orElse(SessionBackend.GAMESCOPE)
+            : SessionBackend.GAMESCOPE;
         LocalDisplay display = LocalDisplay.open(displayName, backend);
         if (display == null) {
             console.println("[Agent] cannot open " + displayName);

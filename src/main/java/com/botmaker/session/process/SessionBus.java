@@ -1,7 +1,7 @@
 package com.botmaker.session.process;
 
 import com.botmaker.shared.Diag;
-import com.botmaker.shared.launch.LaunchIsolation;
+import com.botmaker.session.launch.LaunchIsolation;
 
 import java.io.File;
 import java.lang.ProcessBuilder.Redirect;

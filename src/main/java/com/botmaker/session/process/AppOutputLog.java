@@ -1,6 +1,5 @@
 package com.botmaker.session.process;
 
-import com.botmaker.session.impl.NestedSession;
 
 import com.botmaker.shared.Diag;
 
@@ -14,7 +13,7 @@ import java.util.function.Consumer;
  * What the launched application actually said — the reading every "why didn't it start?" question needs, and
  * the one this stack used to throw away.
  *
- * <p><b>Why this exists.</b> {@link NestedSession} spawned the app with {@code Redirect.DISCARD} on
+ * <p><b>Why this exists.</b> {@code NestedSession} spawned the app with {@code Redirect.DISCARD} on
  * <em>both</em> streams, so a launch that failed inside a session left no trace but its exit. The user-visible
  * cost was a Steam title that wouldn't start and a bug report built entirely out of an unrelated coredump: the
  * only artefact left behind was pressure-vessel's {@code bwrap --unshare-all … --seccomp <fd> /usr/bin/true}

@@ -4,7 +4,7 @@ import com.botmaker.session.Capability;
 import com.botmaker.session.SessionStartException;
 import com.botmaker.session.process.SessionReaper;
 import com.botmaker.session.process.SessionUnit;
-import com.botmaker.session.impl.NestedSession.Backend;
+import com.botmaker.session.SessionBackend;
 
 import com.botmaker.shared.Diag;
 
@@ -99,7 +99,7 @@ public final class NestedDisplay implements SessionDisplay {
             // what every template was captured at; it is not the desktop's to negotiate. The window may be
             // clipped or scrolled on screen, and the pixels behind it are still all there.
             server = reaper.launch(SessionUnit.XEPHYR,
-                List.of(Backend.XEPHYR.binaryName(), "-displayfd", "1", "-screen", width + "x" + height,
+                List.of(SessionBackend.XEPHYR.binaryName(), "-displayfd", "1", "-screen", width + "x" + height,
                     "-ac", "-noreset"),
                 Map.of(),
                 Redirect.appendTo(out));

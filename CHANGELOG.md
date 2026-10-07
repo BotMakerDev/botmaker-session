@@ -11,6 +11,22 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ## [Unreleased]
 
+### Changed — breaking
+- **One door to a session: `Sessions`.** `startPrivate(SessionOptions)` returns a `PrivateSession` (a
+  `DesktopSession` that also answers its backend, its host window and `closeIfDead`); `offered()` adopts the
+  display a parent process handed over (`handoffArguments`); `host()` is the real desktop; `reapOrphans()`
+  sweeps what a crashed process left. Nothing outside `impl` imports `impl` any more but `Sessions`.
+- `NestedSession.Backend` → `SessionBackend`, `NestedSession.Options` → `SessionOptions`, both in the root package.
+- `DesktopSession` loses `pointer()`/`keyboard()` (with `SessionPointer`, `SessionKeyboard`,
+  `input.ControllerPointer`, `input.ControllerKeyboard`): every consumer already drove `controller()` under
+  `PointerPolicy`. It gains `displayName()`.
+- `ActiveSession` is gone: the session a bot drives is the bot runtime's to hold (the SDK's `BotSession`).
+- `SessionBackends.availableBackendFor` is gone; callers ask `isAvailable` and stop with the install command.
+- `SessionHostWindow` moved from `impl` to `display`. `NestedSession` is split: keeping the host window out of
+  sight is `impl.HostWindowHider`, launching into the session and waiting for its window `impl.PrivateLaunch`, and
+  the live-session registry the orphan sweep spares lives in `SessionReaper` (`claim`/`release`/`reapOrphans()`).
+- `launch.LaunchIsolation` and `display.GamescopeHost` moved in from botmaker-shared.
+
 ### Added
 - `display.BackendInstall`: the command that installs a missing gamescope or Xephyr on this distro (dnf, apt,
   pacman, zypper, read from `/etc/os-release`), run through `pkexec`; on an image-based system

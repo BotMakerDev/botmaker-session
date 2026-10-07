@@ -1,6 +1,7 @@
 package com.botmaker.session.launch;
 
-import com.botmaker.session.impl.NestedSession;
+import com.botmaker.session.SessionBackend;
+import com.botmaker.session.SessionOptions;
 import com.botmaker.shared.launch.LaunchSpec;
 import org.junit.jupiter.api.Test;
 
@@ -9,8 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Pure coverage of the shared background launcher's backend shaping and default sizing — the logic that maps
- * Xephyr (2D) vs gamescope (3D) onto {@code NestedSession.Options} and applies the fallback display size. The
- * live bring-up ({@code NestedSession.start} → launch → started listeners) needs a real X server and is verified
+ * Xephyr (2D) vs gamescope (3D) onto {@code SessionOptions} and applies the fallback display size. The
+ * live bring-up ({@code Sessions.startPrivate} → launch → started listeners) needs a real X server and is verified
  * manually / by the shared live suite.
  */
 class BackgroundLauncherTest {
@@ -21,23 +22,23 @@ class BackgroundLauncherTest {
 
     @Test
     void xephyrIsThe2DBackendAtTheRequestedSize() {
-        NestedSession.Options o = BackgroundLauncher.optionsFor(game(), NestedSession.Backend.XEPHYR, 1600, 900);
-        assertEquals(NestedSession.Backend.XEPHYR, o.backend());
+        SessionOptions o = BackgroundLauncher.optionsFor(game(), SessionBackend.XEPHYR, 1600, 900);
+        assertEquals(SessionBackend.XEPHYR, o.backend());
         assertEquals(1600, o.width());
         assertEquals(900, o.height());
     }
 
     @Test
     void gamescopeIsTheOptInHardware3DBackend() {
-        NestedSession.Options o = BackgroundLauncher.optionsFor(game(), NestedSession.Backend.GAMESCOPE, 1920, 1080);
-        assertEquals(NestedSession.Backend.GAMESCOPE, o.backend());
+        SessionOptions o = BackgroundLauncher.optionsFor(game(), SessionBackend.GAMESCOPE, 1920, 1080);
+        assertEquals(SessionBackend.GAMESCOPE, o.backend());
         assertEquals(1920, o.width());
         assertEquals(1080, o.height());
     }
 
     @Test
     void nonPositiveSizeFallsBackToTheDefault() {
-        NestedSession.Options o = BackgroundLauncher.optionsFor(game(), NestedSession.Backend.XEPHYR, 0, -5);
+        SessionOptions o = BackgroundLauncher.optionsFor(game(), SessionBackend.XEPHYR, 0, -5);
         assertEquals(BackgroundLauncher.DEFAULT_WIDTH, o.width());
         assertEquals(BackgroundLauncher.DEFAULT_HEIGHT, o.height());
     }
@@ -50,8 +51,8 @@ class BackgroundLauncherTest {
     @Test
     void anEmulatorAppRunsOnAnUnmanagedDisplay() {
         LaunchSpec waydroid = LaunchSpec.parse("emu-app:com.example.game@Waydroid");
-        NestedSession.Options o =
-                BackgroundLauncher.optionsFor(waydroid, NestedSession.Backend.XEPHYR, 1080, 1920);
+        SessionOptions o =
+                BackgroundLauncher.optionsFor(waydroid, SessionBackend.XEPHYR, 1080, 1920);
         assertTrue(o.hasExplicitWindowManager() && o.windowManagerCommand().isEmpty(),
                 "must be an explicit none — a default openbox would resize gamescope's window");
         assertEquals(1080, o.width());

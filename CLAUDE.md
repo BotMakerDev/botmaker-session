@@ -37,13 +37,19 @@ is now the only thing keeping a caller out.
 
 | Package | Holds | Status |
 |---------|-------|--------|
-| `com.botmaker.session` | `DesktopSession`, `Capability`, `SessionHealth`, `SessionPointer`, `SessionKeyboard`, `ActiveSession`, `PointerPolicy`, `SessionStartException` | the contract |
-| `…session.display` | `SessionDisplay` + the two backends (`NestedDisplay`/Xephyr, `GamescopeDisplay`), `DisplayReadiness`, `SessionBackends` | plumbing |
-| `…session.impl` | `NestedSession`, `AdoptedSession`, `HostSession`, `SessionAttachment`, `SessionHostWindow` | `NestedSession`/`AdoptedSession`/`HostSession` are API; the other two are plumbing |
-| `…session.process` | `SessionReaper`, `SessionMembers`, `SessionBus`, `AppOutputLog` | plumbing |
-| `…session.input` | `ControllerPointer`, `ControllerKeyboard` | plumbing |
+| `com.botmaker.session` | `Sessions` (the factory), `DesktopSession`, `PrivateSession`, `SessionBackend`, `SessionOptions`, `Capability`, `SessionHealth`, `PointerPolicy`, `SessionStartException` | the contract |
+| `…session.display` | `SessionDisplay` + the two backends (`NestedDisplay`/Xephyr, `GamescopeDisplay`), `DisplayReadiness`, `SessionBackends`, `BackendInstall`, `SessionHostWindow`, `GamescopeHost` | plumbing; `SessionBackends`/`BackendInstall`/`GamescopeHost` are read by the SDK |
+| `…session.impl` | `NestedSession` (with `HostWindowHider`, `PrivateLaunch`), `AdoptedSession`, `HostSession`, `SessionAttachment` | implementation: **nothing outside `impl` imports it but `Sessions`** |
+| `…session.process` | `SessionReaper` (also the live-session registry the orphan sweep spares), `SessionMembers`, `SessionBus`, `AppOutputLog` | plumbing |
 | `…session.remote` | `DisplayLink` + `RemoteDisplay`/`LocalDisplay`, `DisplayAgent`, `DisplayAgentProcess`, `AgentProtocol`, `WindowIds` | `DisplayLink`/`WindowIds` are API; the rest is plumbing |
-| `…session.launch` | `BackgroundLauncher` | API |
+| `…session.launch` | `BackgroundLauncher`, `LaunchIsolation` | API |
+
+**2026-10-07 structure pass.** `NestedSession.Backend`/`Options` became the root `SessionBackend`/
+`SessionOptions`; `Sessions` is the one door to `impl`, and a private session is held as a `PrivateSession`.
+`ActiveSession` (a process-wide static) moved to the SDK as `internal.session.BotSession` — which session a bot
+drives is the bot runtime's fact; the library's only process-wide state is `SessionReaper`'s live registry. `DesktopSession.pointer()`/`keyboard()` and their four types went: every consumer drives
+`controller()` under `PointerPolicy`. `LaunchIsolation` and `GamescopeHost` moved in from shared, the isolation
+policy being this module's.
 
 **`session.launch.BackgroundLauncher` arrived from Studio on 2026-08-30** — start a game on a private
 display, adopt one already running, hand off to a bot. It was always written against this module and shared
@@ -63,8 +69,8 @@ files, and nothing else in this repo is modular.
 
 ## The model
 
-- **`DesktopSession`** is the seam: the same bot code targets the user's real desktop (`HostSession`) or a
-  private `:N` (`NestedSession`) without knowing which. A session either `attach`es to an existing window or
+- **`DesktopSession`** is the seam: the same bot code targets the user's real desktop (`Sessions.host()`) or a
+  private `:N` (`Sessions.startPrivate`, a `PrivateSession`) without knowing which. A session either `attach`es to an existing window or
   `launch`es a target into itself.
 - **`Capability`** is how a session advertises what it can actually do, so a caller fails fast instead of
   silently no-op'ing. `BACKGROUND_CLICK` is the load-bearing one — only a nested session can offer it,

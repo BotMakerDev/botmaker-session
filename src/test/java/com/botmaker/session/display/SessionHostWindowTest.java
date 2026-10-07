@@ -1,6 +1,4 @@
-package com.botmaker.session.impl;
-
-import com.botmaker.session.display.SessionDisplay;
+package com.botmaker.session.display;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;

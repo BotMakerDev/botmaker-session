@@ -1,8 +1,8 @@
 package com.botmaker.session.display;
 
 import com.botmaker.session.SessionStartException;
-import com.botmaker.session.impl.NestedSession;
-import com.botmaker.session.impl.SessionHostWindow;
+import com.botmaker.session.SessionBackend;
+import com.botmaker.session.SessionOptions;
 import com.botmaker.session.process.SessionReaper;
 import com.botmaker.session.process.SessionUnit;
 
@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
  * A nested <b>gamescope</b> compositor the bot owns — the hardware-3D counterpart to {@link NestedDisplay}'s
  * Xephyr. gamescope embeds its own Xwayland, so a game inside it gets a real GPU (GL/Vulkan/DXVK/Proton) that
  * Xephyr's software path can't carry, while still giving the bot a private display whose global pointer and
- * focus are its alone. It slots behind the same {@link SessionDisplay} seam, so {@link NestedSession}'s
+ * focus are its alone. It slots behind the same {@link SessionDisplay} seam, so {@code NestedSession}'s
  * supervisor — launch the game, find its window, inject XTest, reap the tree — drives it unchanged; the only
  * differences are how the server is spawned and that this one reports {@link #hardwareAccelerated()}.
  *
@@ -37,7 +37,7 @@ import java.util.regex.Pattern;
  * the SteamOS session model, where gamescope hosts an Xwayland that apps connect to with {@code DISPLAY=:N}),
  * read that stderr line by line on a {@link StderrWatcher} thread, and {@link #parseDisplayNumber parse the
  * number} back out of the banner as it arrives rather than polling for it. That keeps
- * {@link NestedSession}'s "start the display, then launch the game into it" flow identical to the Xephyr path.
+ * {@code NestedSession}'s "start the display, then launch the game into it" flow identical to the Xephyr path.
  * Readiness is still gated on a real {@link DisplayReadiness#awaitConnectable}, never a {@code sleep}.
  *
  * <p><b>Bring-up note (unverified on the dev box).</b> This backend is implemented and unit-tested against
@@ -46,7 +46,7 @@ import java.util.regex.Pattern;
  * proves fragile (a gamescope build that exits without a {@code --} child, or a stderr banner this parser
  * doesn't match), the documented fallback is the child form: launch the game <em>as</em> gamescope's child so
  * it inherits {@code DISPLAY}, and read the number from the same stderr. The default gamescope argv is
- * overridable via {@link NestedSession.Options}, so that switch needs no code change here.
+ * overridable via {@link SessionOptions}, so that switch needs no code change here.
  */
 public final class GamescopeDisplay implements SessionDisplay {
 
@@ -148,7 +148,7 @@ public final class GamescopeDisplay implements SessionDisplay {
      * gamescope maps its output window the instant it starts, and nothing is drawn into it until the game — or a
      * store launcher, minutes later — maps a window on the Xwayland, so {@link SessionHostWindow} minimizes it
      * for that stretch and restores it on the session's first attach. For a genuinely invisible run, override this argv
-     * (via {@link NestedSession.Options#withGamescopeCommand}) with {@code --backend headless} — gamescope still
+     * (via {@link SessionOptions#withGamescopeCommand}) with {@code --backend headless} — gamescope still
      * hosts a GPU-backed Xwayland with no output window. That path is documented, not verified: whether an
      * X11 window capture of a headless gamescope reads real pixels is exactly the sort of thing to confirm on a
      * live box before relying on it.
@@ -158,7 +158,7 @@ public final class GamescopeDisplay implements SessionDisplay {
         String h = Integer.toString(height);
         // No child command, so gamescope stays up hosting its Xwayland for apps we launch afterwards with
         // DISPLAY=:N. A caller can override this whole argv via Options.
-        return List.of(NestedSession.Backend.GAMESCOPE.binaryName(), "-W", w, "-H", h, "-w", w, "-h", h,
+        return List.of(SessionBackend.GAMESCOPE.binaryName(), "-W", w, "-H", h, "-w", w, "-h", h,
             "--force-windows-fullscreen", "--expose-wayland");
     }
 

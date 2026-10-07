@@ -1,7 +1,9 @@
 package com.botmaker.session.video;
 
 import com.botmaker.session.Preview;
-import com.botmaker.session.impl.NestedSession;
+import com.botmaker.session.PrivateSession;
+import com.botmaker.session.SessionOptions;
+import com.botmaker.session.Sessions;
 
 import org.junit.jupiter.api.Test;
 
@@ -85,8 +87,8 @@ class FidelityProbeTest {
         report.add("session: " + size[0] + "x" + size[1] + " (Xephyr, no window manager)");
         report.add("");
 
-        NestedSession session = NestedSession.start(
-                NestedSession.Options.xephyr(size[0], size[1]).withoutWindowManager());
+        PrivateSession session = Sessions.startPrivate(
+                SessionOptions.xephyr(size[0], size[1]).withoutWindowManager());
         Process pattern = null;
         try {
             BufferedImage source = FidelityPattern.build(size[0], size[1]);
@@ -148,7 +150,7 @@ class FidelityProbeTest {
      * the first expose is a real capture of a half-drawn window, and measuring one would report the toolkit's
      * timing as the pipeline's fidelity.
      */
-    private static BufferedImage awaitPaintedCapture(NestedSession session) throws InterruptedException {
+    private static BufferedImage awaitPaintedCapture(PrivateSession session) throws InterruptedException {
         long deadline = System.currentTimeMillis() + PATTERN_TIMEOUT_MS;
         BufferedImage last = null;
         while (System.currentTimeMillis() < deadline) {
@@ -169,7 +171,7 @@ class FidelityProbeTest {
      * last picture out of it to {@code stage2-h264.png}. Returns the encoder that won, or {@code null} when
      * the session declined to open a stream at all.
      */
-    private static String captureVideo(NestedSession session, Path out) throws Exception {
+    private static String captureVideo(PrivateSession session, Path out) throws Exception {
         ByteArrayOutputStream annexB = new ByteArrayOutputStream();
         VideoStream stream = session.openVideoStream(Preview.MAX_EDGE, 24,
                 packet -> annexB.writeBytes(packet.annexB()));

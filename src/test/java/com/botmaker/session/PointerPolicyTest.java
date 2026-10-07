@@ -114,8 +114,7 @@ class PointerPolicyTest {
     /** A session that is nothing but its capability set — the only thing the policy reads. */
     private record StubSession(Set<Capability> capabilities) implements DesktopSession {
         @Override public Rectangle screen() { return new Rectangle(); }
-        @Override public SessionPointer pointer() { return null; }
-        @Override public SessionKeyboard keyboard() { return null; }
+        @Override public String displayName() { return ":9"; }
         @Override public void attach(GenericWindow window) { }
         @Override public GenericWindow attached() { return null; }
         @Override public void launch(LaunchSpec spec) { }

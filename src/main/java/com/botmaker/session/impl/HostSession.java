@@ -2,10 +2,6 @@ package com.botmaker.session.impl;
 
 import com.botmaker.session.Capability;
 import com.botmaker.session.DesktopSession;
-import com.botmaker.session.SessionKeyboard;
-import com.botmaker.session.SessionPointer;
-import com.botmaker.session.input.ControllerKeyboard;
-import com.botmaker.session.input.ControllerPointer;
 
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
@@ -38,16 +34,12 @@ import java.util.Set;
 public final class HostSession implements DesktopSession {
 
     private final NativeController controller;
-    private final ControllerPointer pointer;
-    private final ControllerKeyboard keyboard;
     private volatile GenericWindow attached;
     private volatile boolean closed;
 
     /** Wraps {@code controller} without taking ownership of it (see the class note on {@link #close()}). */
     public HostSession(NativeController controller) {
         this.controller = controller;
-        this.pointer = new ControllerPointer(controller);
-        this.keyboard = new ControllerKeyboard(controller, this::attached);
     }
 
     /** A host session over the process-wide default controller ({@link NativeControllerFactory#get()}). */
@@ -77,14 +69,11 @@ public final class HostSession implements DesktopSession {
         }
     }
 
+    /** The desktop's own display: {@code $DISPLAY}, or {@code :0} where none is set (Windows, a bare TTY). */
     @Override
-    public SessionPointer pointer() {
-        return pointer;
-    }
-
-    @Override
-    public SessionKeyboard keyboard() {
-        return keyboard;
+    public String displayName() {
+        String display = System.getenv("DISPLAY");
+        return display == null || display.isBlank() ? ":0" : display;
     }
 
     @Override

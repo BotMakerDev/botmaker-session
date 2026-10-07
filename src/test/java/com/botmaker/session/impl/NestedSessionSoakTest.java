@@ -1,6 +1,7 @@
 package com.botmaker.session.impl;
 
 import com.botmaker.session.SessionHealth;
+import com.botmaker.session.SessionOptions;
 
 import com.botmaker.shared.launch.LaunchSpec;
 import org.junit.jupiter.api.Test;
@@ -42,12 +43,12 @@ class NestedSessionSoakTest {
 
         for (int i = 1; i <= iterations; i++) {
             NestedSession session = NestedSession.start(
-                NestedSession.Options.xephyr(800, 600).withWindowManager("openbox", "--sm-disable"));
+                SessionOptions.xephyr(800, 600).withWindowManager("openbox", "--sm-disable"));
             String display = session.displayName();
             try {
                 session.launch(LaunchSpec.parse("cli:xmessage -center soak-" + i));
                 assertNotNull(session.attached(), "cycle " + i + ": a window should have mapped on " + display);
-                session.pointer().moveAbsolute(400, 300);
+                session.controller().mouseMove(400, 300);
                 assertNotNull(session.capture(), "cycle " + i + ": capture should yield a frame");
             } finally {
                 session.close();
@@ -69,7 +70,7 @@ class NestedSessionSoakTest {
     void healthGoesDegradedWhenTheGameDiesButTheDisplayLives() throws Exception {
         assumeLive();
         NestedSession session = NestedSession.start(
-            NestedSession.Options.xephyr(800, 600).withWindowManager("openbox", "--sm-disable"));
+            SessionOptions.xephyr(800, 600).withWindowManager("openbox", "--sm-disable"));
         try {
             // -timeout makes xmessage map a window, then close itself after ~2s — the game dies, display stays up.
             session.launch(LaunchSpec.parse("cli:xmessage -timeout 2 -center dying"));

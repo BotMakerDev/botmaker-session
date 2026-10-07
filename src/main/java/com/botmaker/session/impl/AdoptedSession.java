@@ -2,11 +2,9 @@ package com.botmaker.session.impl;
 
 import com.botmaker.session.Capability;
 import com.botmaker.session.DesktopSession;
+import com.botmaker.session.PrivateSession;
+import com.botmaker.session.SessionBackend;
 import com.botmaker.session.SessionHealth;
-import com.botmaker.session.SessionKeyboard;
-import com.botmaker.session.SessionPointer;
-import com.botmaker.session.input.ControllerKeyboard;
-import com.botmaker.session.input.ControllerPointer;
 import com.botmaker.session.remote.DisplayLink;
 import com.botmaker.session.remote.WindowIds;
 
@@ -56,16 +54,12 @@ public final class AdoptedSession implements DesktopSession {
     /** Everything this session does to the adopted display, held in another process — see {@link DisplayLink}. */
     private final DisplayLink link;
     private final SessionAttachment attachment;
-    private final ControllerPointer pointer;
-    private final ControllerKeyboard keyboard;
     private volatile boolean closed;
 
     private AdoptedSession(String displayName, DisplayLink link) {
         this.displayName = displayName;
         this.link = link;
         this.attachment = new SessionAttachment(link, "adopted " + displayName);
-        this.pointer = new ControllerPointer(link);
-        this.keyboard = new ControllerKeyboard(link, this::attached);
         // Same contract as a nested session: the input backend asks for the driven window on every use, because the
         // attachment re-resolves when the launcher chain swaps windows under us.
         link.setDrivenWindow(this::attachedWindowId);
@@ -79,8 +73,7 @@ public final class AdoptedSession implements DesktopSession {
     public static AdoptedSession fromProperties() {
         return adopt(System.getProperty(DISPLAY_PROPERTY),
             System.getProperty(WINDOW_PROPERTY),
-            NestedSession.Backend.fromId(System.getProperty(BACKEND_PROPERTY))
-                .orElse(NestedSession.Backend.GAMESCOPE));
+            SessionBackend.fromId(System.getProperty(BACKEND_PROPERTY)).orElse(SessionBackend.GAMESCOPE));
     }
 
     /**
@@ -92,7 +85,7 @@ public final class AdoptedSession implements DesktopSession {
      * finished swapping them; the adopting bot would otherwise just take the newest top-level and could pick up a
      * leftover dialog. It is advisory — {@link #adopt} falls back to the newest when that window has since gone.
      */
-    public static List<String> handoffArguments(NestedSession session) {
+    public static List<String> handoffArguments(PrivateSession session) {
         if (session == null) {
             return List.of();
         }
@@ -116,7 +109,7 @@ public final class AdoptedSession implements DesktopSession {
      *                Xwayland reads an absolute warp as window-relative, and getting that wrong puts every click
      *                at the wrong place rather than failing outright
      */
-    public static AdoptedSession adopt(String displayName, String windowId, NestedSession.Backend backend) {
+    public static AdoptedSession adopt(String displayName, String windowId, SessionBackend backend) {
         if (displayName == null || displayName.isBlank()) {
             return null;
         }
@@ -161,16 +154,6 @@ public final class AdoptedSession implements DesktopSession {
         // Read off the display rather than remembered from a launch: the owner chose the size, and we were only
         // told which display to join.
         return link.screenSize();
-    }
-
-    @Override
-    public SessionPointer pointer() {
-        return pointer;
-    }
-
-    @Override
-    public SessionKeyboard keyboard() {
-        return keyboard;
     }
 
     @Override
@@ -228,6 +211,7 @@ public final class AdoptedSession implements DesktopSession {
     }
 
     /** The display this session joined, e.g. {@code ":1"}. */
+    @Override
     public String displayName() {
         return displayName;
     }

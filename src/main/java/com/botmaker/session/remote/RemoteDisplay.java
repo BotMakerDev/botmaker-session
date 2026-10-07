@@ -2,7 +2,8 @@ package com.botmaker.session.remote;
 
 import com.botmaker.session.PaintedSurface;
 import com.botmaker.session.PreviewFrame;
-import com.botmaker.session.impl.NestedSession;
+import com.botmaker.session.PrivateSession;
+import com.botmaker.session.SessionBackend;
 
 import com.botmaker.shared.Diag;
 import com.botmaker.shared.capture.GenericWindow;
@@ -29,7 +30,7 @@ import javax.imageio.ImageIO;
  * <p><b>Degrade, never throw.</b> The moment a round trip fails — the agent exited because Xlib exited it, the
  * pipe broke, the response didn't parse — this link marks itself {@link #dead} and every later call returns the
  * empty answer for its type. That is deliberate: the display really is gone, and the caller already has a path
- * for that ({@code health()} → {@link NestedSession#closeIfDead()}). Throwing would only relocate the crash.
+ * for that ({@code health()} → {@link PrivateSession#closeIfDead()}). Throwing would only relocate the crash.
  *
  * <p><b>The driven window is resolved outside the lock, and never re-entered.</b> A session's driven-window
  * supplier resolves its attachment, which calls back into this link to enumerate windows and probe whether the
@@ -69,7 +70,7 @@ public final class RemoteDisplay implements DisplayLink {
     }
 
     /** Start an agent for {@code displayName} and connect to it, or {@code null} when one couldn't be started. */
-    static RemoteDisplay open(String displayName, NestedSession.Backend backend) {
+    static RemoteDisplay open(String displayName, SessionBackend backend) {
         if (displayName == null || displayName.isBlank()) {
             return null;
         }

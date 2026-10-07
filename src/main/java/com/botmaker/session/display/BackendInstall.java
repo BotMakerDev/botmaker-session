@@ -1,6 +1,6 @@
 package com.botmaker.session.display;
 
-import com.botmaker.session.impl.NestedSession;
+import com.botmaker.session.SessionBackend;
 import com.botmaker.shared.Executables;
 
 import java.io.IOException;
@@ -51,7 +51,7 @@ public record BackendInstall(List<String> command, boolean needsReboot) {
         }
 
         /** The package that ships {@code backend}'s binary under this family's names. */
-        String packageFor(NestedSession.Backend backend) {
+        String packageFor(SessionBackend backend) {
             return switch (backend) {
                 case GAMESCOPE -> "gamescope";
                 case XEPHYR -> switch (this) {
@@ -65,13 +65,13 @@ public record BackendInstall(List<String> command, boolean needsReboot) {
     }
 
     /** The install for {@code backend} on this machine, or empty when the distro is not one this knows. */
-    public static Optional<BackendInstall> forBackend(NestedSession.Backend backend) {
+    public static Optional<BackendInstall> forBackend(SessionBackend backend) {
         return forBackend(backend, osRelease(Path.of("/etc/os-release")),
                 Files.exists(Path.of("/run/ostree-booted")));
     }
 
     /** The testable seam: {@code osRelease} as parsed key/values, {@code ostree} whether the system is image-based. */
-    static Optional<BackendInstall> forBackend(NestedSession.Backend backend, Map<String, String> osRelease,
+    static Optional<BackendInstall> forBackend(SessionBackend backend, Map<String, String> osRelease,
                                                boolean ostree) {
         return family(osRelease, ostree).map(family -> {
             List<String> argv = new ArrayList<>(family.install);

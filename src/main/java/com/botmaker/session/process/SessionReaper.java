@@ -295,6 +295,32 @@ public final class SessionReaper {
         Pattern.compile(Pattern.quote(ProcessOrigin.SESSION_UNIT_PREFIX) + "s(\\d+)(?:-\\d+)?\\.slice");
 
     /**
+     * The ids of the sessions this JVM currently holds. It exists so the orphan sweep can tell an <em>abandoned</em>
+     * slice of ours from a live one: "owner pid is alive" used to be enough to spare a slice, which spared the
+     * shells of sessions this JVM had already let go of — a private {@code dbus-daemon} was found still running in
+     * one whose display server had been gone for hours, and the launch probes counted it as a launcher that was up.
+     *
+     * <p>An id is {@link #claim claimed} before its slice exists and {@link #release released} when the session
+     * closes or fails to start — the sweep runs concurrently with a bring-up, so "held" has to include "being built".
+     */
+    private static final Set<String> LIVE = ConcurrentHashMap.newKeySet();
+
+    /** Marks {@code sessionId} as held by this JVM, so {@link #reapOrphans()} spares its slice. */
+    public static void claim(String sessionId) {
+        LIVE.add(sessionId);
+    }
+
+    /** This JVM no longer holds {@code sessionId}: the next sweep may reap whatever is left in its slice. */
+    public static void release(String sessionId) {
+        LIVE.remove(sessionId);
+    }
+
+    /** {@link #reapOrphans(Collection)} sparing exactly the sessions this JVM {@link #claim claimed}. */
+    public static void reapOrphans() {
+        reapOrphans(LIVE);
+    }
+
+    /**
      * Reap the leftovers of dead sessions: any {@code botmaker-sess-s<pid>-*.slice} whose owning JVM {@code pid}
      * is no longer alive is stopped. This is what makes "{@code kill -9} the JVM ⇒ zero orphans" true — a
      * {@code --scope} tree outlives the JVM that spawned it (that is the whole point: it stays reliably reapable

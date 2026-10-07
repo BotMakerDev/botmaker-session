@@ -1,6 +1,7 @@
 package com.botmaker.session.impl;
 
 import com.botmaker.session.Capability;
+import com.botmaker.session.SessionOptions;
 
 import com.botmaker.shared.capture.linux.LinuxController;
 import com.botmaker.shared.capture.linux.X11;
@@ -46,7 +47,7 @@ class NestedSessionLiveTest {
 
             // No explicit window manager: a Xephyr session runs the backend default (openbox when installed),
             // which is what makes the display carry EWMH — and therefore focus — at all.
-            NestedSession session = NestedSession.start(NestedSession.Options.xephyr(1280, 720));
+            NestedSession session = NestedSession.start(SessionOptions.xephyr(1280, 720));
             String nested = session.displayName();
             try {
                 assertNotEquals(hostDisplay, nested, "the nested display must not be the real one");
@@ -60,11 +61,11 @@ class NestedSessionLiveTest {
 
                 // Drive :N's private pointer to a distinctive target and confirm the injection landed there.
                 Point target = new Point(640, 360);
-                session.pointer().moveAbsolute(target.x, target.y);
-                Point onNested = session.pointer().position();
+                session.controller().mouseMove(target.x, target.y);
+                Point onNested = session.controller().cursorPosition();
                 assertNotNull(onNested, "should be able to read the :N pointer");
                 assertEquals(target, onNested, "the :N pointer should be exactly where our injection put it");
-                session.pointer().click(1);
+                session.controller().click(target.x, target.y, 1);
 
                 // Capture flows through the :N-bound controller.
                 assertNotNull(session.capture(), "capturing the attached :N window should yield a frame");
@@ -94,7 +95,7 @@ class NestedSessionLiveTest {
         List<NestedSession> sessions = new ArrayList<>();
         try {
             for (int i = 0; i < 3; i++) {
-                sessions.add(NestedSession.start(NestedSession.Options.xephyr(640, 480)));
+                sessions.add(NestedSession.start(SessionOptions.xephyr(640, 480)));
             }
             Set<String> displays = new HashSet<>();
             for (NestedSession s : sessions) {
