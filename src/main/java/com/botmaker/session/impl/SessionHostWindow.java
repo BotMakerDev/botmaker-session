@@ -4,6 +4,7 @@ import com.botmaker.session.display.SessionDisplay;
 
 import com.botmaker.shared.Diag;
 import com.botmaker.shared.capture.linux.X11;
+import com.botmaker.shared.capture.linux.X11ErrorTrap;
 import com.botmaker.shared.capture.linux.X11Utils;
 import com.botmaker.shared.platform.SessionEnv;
 import com.sun.jna.Pointer;
@@ -72,8 +73,13 @@ public final class SessionHostWindow {
         PENDING,
         /** We minimized it, and are waiting for the session to have something worth showing. */
         HIDDEN,
-        /** The session has content (or teardown asked): shown, and never hidden again. */
-        REVEALED
+        /** The session has content: shown, and never hidden again. */
+        REVEALED,
+        /**
+         * Teardown withdrew it before stopping the payload, and nothing shows it again — terminal over every other
+         * state, since the window dies with the session.
+         */
+        WITHDRAWN
     }
 
     private final String hostDisplay;
@@ -306,19 +312,29 @@ public final class SessionHostWindow {
             Diag.log(stamp() + " [Session] not hiding the " + label + " — already " + state);
             return;
         }
+        if (iconify()) {
+            state = Visibility.HIDDEN;
+            Diag.log(stamp() + " [Session] PENDING -> HIDDEN: minimized the " + label
+                + " until there is something in it (" + clients(mappedClients) + ")");
+        }
+    }
+
+    /** Remember the bounds, then minimize — {@link #hide} and {@link #withdraw}'s one X sequence. */
+    private boolean iconify() {
         Pointer display = open(hostDisplay);
         if (display == null) {
-            return;
+            Diag.error(stamp() + " [Session] could not minimize the " + label + ": the host display "
+                + hostDisplay + " refused a connection");
+            return false;
         }
         try {
             rememberBounds(display);
             X11.INSTANCE.XIconifyWindow(display, new Pointer(windowId), X11.INSTANCE.XDefaultScreen(display));
             X11.INSTANCE.XFlush(display);
-            state = Visibility.HIDDEN;
-            Diag.log(stamp() + " [Session] PENDING -> HIDDEN: minimized the " + label
-                + " until there is something in it (" + clients(mappedClients) + ")");
+            return true;
         } catch (Throwable t) {
             Diag.error(stamp() + " [Session] could not minimize the " + label + ": " + t.getMessage());
+            return false;
         } finally {
             close(display);
         }
@@ -339,7 +355,7 @@ public final class SessionHostWindow {
      * minimized, and refusing that because we weren't the one who hid it would be a regression.
      */
     public synchronized void reveal() {
-        if (state == Visibility.REVEALED) {
+        if (state == Visibility.REVEALED || state == Visibility.WITHDRAWN) {
             return;
         }
         Visibility prior = state;
@@ -363,6 +379,31 @@ public final class SessionHostWindow {
                 + " — un-minimize it by hand to watch the session");
         } finally {
             close(display);
+        }
+    }
+
+    /**
+     * Take the window off the host desktop for good — teardown's first step, before the payload is asked to exit
+     * (2026-10-07).
+     *
+     * <p>The black blip it removes: teardown stopped the game first, so the window showed black until the display
+     * server was reaped, and the reveal teardown also ran un-minimized a hidden window just to show it black.
+     * Iconified, like {@link #hide}, and not unmapped, measured: a bare {@code XUnmapWindow} from here left KWin
+     * (X11) showing the <em>next</em> session's gamescope window black for its first second, failing
+     * {@code theHostWindowReadsRealPixelsFromTheHostSide} in two runs of four; iconifying passed four of four.
+     * The bounds are taken first so {@link #repaintHostBehind} still knows where it was. Idempotent and terminal.
+     */
+    public synchronized void withdraw() {
+        if (state == Visibility.WITHDRAWN) {
+            return;
+        }
+        Visibility prior = state;
+        state = Visibility.WITHDRAWN;
+        // Already minimized: nothing to do, and re-reading the bounds of an iconified client would replace the
+        // good ones hide() took.
+        if (prior == Visibility.HIDDEN || iconify()) {
+            Diag.log(stamp() + " [Session] " + prior + " -> WITHDRAWN: took the " + label
+                + " off the desktop before teardown");
         }
     }
 
@@ -434,6 +475,9 @@ public final class SessionHostWindow {
 
     private static Pointer open(String hostDisplay) {
         try {
+            // A window the server took with it is a BadWindow on every call below, and Xlib's default handler
+            // exits the process; idempotent, and installed before JavaFX in Studio already.
+            X11ErrorTrap.install();
             return X11.INSTANCE.XOpenDisplay(hostDisplay);
         } catch (Throwable t) {
             return null;

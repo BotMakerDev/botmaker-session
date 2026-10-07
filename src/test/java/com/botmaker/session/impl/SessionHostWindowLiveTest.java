@@ -117,6 +117,35 @@ class SessionHostWindowLiveTest {
     }
 
     /**
+     * The black blip on close (2026-10-07): teardown stops the payload before it reaps the display server, so the
+     * host window sat on the desktop, black, in between. {@code close()} now withdraws it first; this asserts the
+     * withdraw itself against X — the window leaves the desktop with the game still in it, and the reveal every
+     * attach and the old teardown ran cannot bring it back.
+     */
+    @Test
+    void aWithdrawnHostWindowLeavesTheDesktopAndNoRevealBringsItBack() throws Exception {
+        assumeLive();
+        NestedSession session = startSession();
+        try {
+            session.launch(LaunchSpec.parse("cli:xterm -e sleep 300"));
+            SessionHostWindow hostWindow = findHostWindow(session);
+            hostWindow.reveal();
+            assertTrue(awaitViewable(hostWindow.windowId(), 16_000), "the host window should be on screen");
+
+            hostWindow.withdraw();
+
+            assertTrue(awaitIconified(hostWindow.windowId(), 2_000),
+                "the host window must leave the desktop while its content is still running");
+            hostWindow.reveal();
+            assertEquals(SessionHostWindow.Visibility.WITHDRAWN, hostWindow.state(), "a withdraw is terminal");
+            Thread.sleep(300);
+            assertTrue(awaitIconified(hostWindow.windowId(), 200), "a late reveal must not bring it back");
+        } finally {
+            session.close();
+        }
+    }
+
+    /**
      * The other direction, and the one Studio's overlay editor rests on: a <em>host-side</em> X capture of the
      * session's host window reads the session's real pixels. The test above proves the session can read itself;
      * that says nothing about whether the host window is a real drawable rather than a compositor placeholder,

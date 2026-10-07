@@ -11,6 +11,12 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ## [Unreleased]
 
+### Fixed
+- Closing a gamescope session no longer flashes a black window on the desktop. Teardown stopped the game before the
+  display server, so the server's window showed black in between, and teardown also un-minimized a hidden window
+  just before it died. `close()` now minimizes the window first (`SessionHostWindow.withdraw`), and nothing shows it
+  again.
+
 ### Changed
 
 - The pom carries a real version and names shared's version, so a tag's pom says what it was built

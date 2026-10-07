@@ -119,7 +119,7 @@ public final class NestedSession implements DesktopSession {
     private static final long MEMBER_SHUTDOWN_MS = 20_000;
     /**
      * Set to {@code false} to leave the display server's host window visible for the whole bring-up (the old
-     * behaviour). The escape hatch exists because minimizing it is a host-WM-mediated operation on a window we
+     * behaviour), and through teardown too ({@link #withdrawHostWindow}). The escape hatch exists because minimizing it is a host-WM-mediated operation on a window we
      * don't own: if a compositor ever throttles an iconified server's frames, capture would stall, and that is
      * far worse than the black flash this hides.
      */
@@ -130,6 +130,9 @@ public final class NestedSession implements DesktopSession {
      * window showed up more than 3s after its Xwayland was connectable, which a tighter budget simply missed.
      */
     private static final long HOST_WINDOW_FIND_MS = 15_000;
+
+    /** The last look for that window at teardown, when the hider found none: brief, since close() waits on it. */
+    private static final long TEARDOWN_FIND_MS = 300;
 
     private final String id;
     private final SessionReaper reaper;
@@ -313,6 +316,11 @@ public final class NestedSession implements DesktopSession {
         }
         synchronized (hostWindowLock) {
             hostWindow = window;
+            // Teardown began while this was still searching, and found nothing itself: withdraw what this found.
+            if (hostWindowState == SessionHostWindow.Visibility.WITHDRAWN) {
+                window.withdraw();
+                return;
+            }
             // A reveal that arrived while the search was still running is the whole reason this is locked: the
             // window has to come up shown, not be hidden by a decision taken before the reveal existed.
             if (hostWindowState == SessionHostWindow.Visibility.REVEALED) {
@@ -348,10 +356,42 @@ public final class NestedSession implements DesktopSession {
      */
     public void revealHostWindow() {
         synchronized (hostWindowLock) {
+            if (hostWindowState == SessionHostWindow.Visibility.WITHDRAWN) {
+                return;
+            }
             hostWindowState = SessionHostWindow.Visibility.REVEALED;
             SessionHostWindow window = hostWindow;
             if (window != null) {
                 window.reveal();
+            }
+        }
+    }
+
+    /**
+     * Take the display server's host window off the desktop for good, as teardown's first step (2026-10-07): with
+     * the payload stopped first and the server reaped last, gamescope's window showed black in between — the
+     * blip on every close — and the reveal teardown ran before it un-minimized a hidden window only to show it
+     * black. The window dies with the session, so nothing shows it again ({@link SessionHostWindow#withdraw}).
+     *
+     * <p>A hider that gave up before the window mapped left nothing to withdraw, so the search runs once more,
+     * briefly, while the server still lives; one that is still searching finds {@code WITHDRAWN} and withdraws
+     * what it finds. {@link #HIDE_UNTIL_READY_PROPERTY} {@code false} turns this off with the hider: that user
+     * asked BotMaker never to minimize the window.
+     */
+    private void withdrawHostWindow() {
+        if (!Boolean.parseBoolean(System.getProperty(HIDE_UNTIL_READY_PROPERTY, "true"))) {
+            return;
+        }
+        synchronized (hostWindowLock) {
+            hostWindowState = SessionHostWindow.Visibility.WITHDRAWN;
+            SessionHostWindow window = hostWindow;
+            if (window == null && display.alive()) {
+                window = SessionHostWindow.find(display.serverPid(), options.backend().binaryName(),
+                    display.displayName(), TEARDOWN_FIND_MS);
+                hostWindow = window;
+            }
+            if (window != null) {
+                window.withdraw();
             }
         }
     }
@@ -670,12 +710,13 @@ public final class NestedSession implements DesktopSession {
         }
         closed = true;
         LIVE.remove(id);
-        Diag.log("[Session] " + id + ": closing — payload first, then our X connections, then the slice");
+        Diag.log("[Session] " + id + ": closing — host window off the desktop, payload, our X connections, then"
+            + " the slice");
+        // First, so the user never watches the window go black: the payload exits next, and the display server
+        // only after it. See withdrawHostWindow.
+        withdrawHostWindow();
         // Before anything the game depends on goes away. See shutdownMembers.
         shutdownMembers();
-        // And show the host window on the way out: a session being torn down while minimized is a window the
-        // user never gets back, and the repaint below has to know where it was.
-        revealHostWindow();
         // Stop following the app's output, but leave the file: a session torn down after a failed launch is
         // exactly when someone wants to read it.
         AppOutputLog output = appLog;
