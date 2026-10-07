@@ -11,6 +11,11 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ## [Unreleased]
 
+### Added
+- `display.BackendInstall`: the command that installs a missing gamescope or Xephyr on this distro (dnf, apt,
+  pacman, zypper, read from `/etc/os-release`), run through `pkexec`; on an image-based system
+  (`rpm-ostree`) the command to copy and restart after.
+
 ### Fixed
 - Closing a gamescope session no longer flashes a black window on the desktop. Teardown stopped the game before the
   display server, so the server's window showed black in between, and teardown also un-minimized a hidden window
