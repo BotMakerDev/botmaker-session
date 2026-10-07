@@ -6,6 +6,14 @@ History before 2026-07-30 (when this stack was `com.botmaker.shared.session`) is
 
 ## Open
 
+- **A Windows game in a VMware VM, as a session** (`../docs/refactor/44-windows-isolation.md` §4b). The bot
+  stays on the host and drives the VM's screen over Workstation's VNC server. Waits on the spike's VMware
+  column: VNC answers, and input reaches a 3D game. Then, in phases:
+  1. vmrun, `.vmx` and inventory, plus DPAPI-stored guest credentials (shared);
+  2. an RFB client as a `NativeController` (shared);
+  3. a `VmSession` `DesktopSession` and `BotSettings.Where.VM` (session, SDK);
+  4. the Bot Settings VM picker with *Prepare…* (SDK).
+  If VNC fails, a guest agent on the `DisplayLink` model replaces phase 2.
 - **Waydroid on gamescope instead of Xephyr — measure first.** A Waydroid session is Wayland → inner
   `gamescope --backend sdl` → Xephyr (software, CPU-blitting) → host X; users report it laggy where a
   gamescope-only launch is not. Try swapping the *outer* display to gamescope, keeping the inner
