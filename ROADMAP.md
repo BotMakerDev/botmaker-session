@@ -23,10 +23,8 @@ History before 2026-07-30 (when this stack was `com.botmaker.shared.session`) is
     up;
   - *when nothing has used it for* counts QEMU's VNC clients; a VMware VM has no such count and is never
     shut down as unused;
-  - copying a game from this PC (`GameCopy`) is QEMU only: VMware's guest reaches this PC through its own
-    network, which the loopback server doesn't listen on (`vmrun copyFileFromHostToGuest` instead). Epic in
-    the VM accepting the copied Firestone is checked once someone signs in there. The 🎮 game dialog still
-    lists this PC's games for a VM bot, not the VM's.
+  - Epic in the VM accepting a game copied from this PC (`GameCopy`, Firestone in `live` and `vmw`) is checked
+    once someone signs in there. The 🎮 game dialog still lists this PC's games for a VM bot, not the VM's.
 - **Waydroid on gamescope instead of Xephyr — measure first.** A Waydroid session is Wayland → inner
   `gamescope --backend sdl` → Xephyr (software, CPU-blitting) → host X; users report it laggy where a
   gamescope-only launch is not. Try swapping the *outer* display to gamescope, keeping the inner
