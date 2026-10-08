@@ -11,12 +11,16 @@ History before 2026-07-30 (when this stack was `com.botmaker.shared.session`) is
     VMware installed, and a launcher install through `vmrun runProgramInGuest`, which runs as the guest's
     user rather than SYSTEM, so a per-machine `msiexec /qn` may be refused without elevation;
   - VirtualBox as a third hypervisor (it serves VNC through an extension pack);
-  - DirectX 12 in the guest: neither hypervisor offers it, so a DX12-only game can't run in a VM;
+  - DirectX 12 and Vulkan in the guest: neither hypervisor offers them, so a DX12- or Vulkan-only game can't
+    run in a VM; a Linux guest has no GPU at all (Wine and Proton draw in software);
   - the Remote Pilot's background mode for a VM (it drives a Linux private display only);
-  - the guest's processes are out of sight: a recovery restart can't stop the game, only start it again,
-    `Target.isRunning()` answers whether the VM is open rather than whether the game runs, and a run starts
-    the game again after ▶ Launch game started it. Ask the guest agent (`guest-exec` with output: `tasklist`,
-    `taskkill`) once the game's process is known;
+  - a Linux game VM on VMware: setup, displays (reached at the guest's NAT address) and the game copy
+    (`vmhgfs-fuse`) are QEMU-only;
+  - a Linux VM's Steam client runs in the game unit of the display that started it, so it counts as that
+    display's game, and a Steam game started from a second display goes to that client;
+  - every display of a Linux VM reads its window list each second over the VM's one guest agent;
+  - each bot of a Linux VM keeps a VNC connection to the VM's console, which only says when the VM ended;
+  - a Linux VM's screen window shows nothing until its guest answers;
   - the frame rate over VNC while the guest's screen moves, measured with a game;
   - a VM shut down while a bot runs ends the run only at its next recovery (the watchdog's stuck timeout, or
     a crash): until then the bot sees the last frame. The SDK could stop the run when `endedBecause()` turns
@@ -24,7 +28,9 @@ History before 2026-07-30 (when this stack was `com.botmaker.shared.session`) is
   - *when nothing has used it for* counts QEMU's VNC clients; a VMware VM has no such count and is never
     shut down as unused;
   - Epic in the VM accepting a game copied from this PC (`GameCopy`, Firestone in `live` and `vmw`) is checked
-    once someone signs in there. The 🎮 game dialog still lists this PC's games for a VM bot, not the VM's.
+    once someone signs in there; so is `legendary import` and launch in the Linux VM (Firestone is in `lin`,
+    and runs there under Wine up to its sign-in). The 🎮 game dialog still lists this PC's games for a VM bot,
+    not the VM's.
 - **Waydroid on gamescope instead of Xephyr — measure first.** A Waydroid session is Wayland → inner
   `gamescope --backend sdl` → Xephyr (software, CPU-blitting) → host X; users report it laggy where a
   gamescope-only launch is not. Try swapping the *outer* display to gamescope, keeping the inner
