@@ -6,14 +6,17 @@ History before 2026-07-30 (when this stack was `com.botmaker.shared.session`) is
 
 ## Open
 
-- **A Windows game in a virtual machine that Studio sets up** (`../docs/refactor/44-windows-isolation.md`
-  §4b). VMware Workstation when installed (DirectX 11), else QEMU from winget (software drawing, for 2D
-  games). Both are driven over their VNC server from the host, with the user's own Windows ISO. Phases:
-  1. an RFB client as a `NativeController` (shared);
-  2. the hypervisors, the `.vmx` and QEMU command line, the answer file and its ISO disc (shared);
-  3. `VmSetup` end to end, live with QEMU (shared);
-  4. `VmSession` and `BotSettings.Where.VM` (session, SDK);
-  5. Studio's *Set up a game VM…* and VM screen (SDK).
+- **Game VM, what's left** (`../docs/refactor/44-windows-isolation.md` §4b):
+  - VMware Workstation's route is unit-tested only: check `VmSetupLiveTest` and `VmSessionLiveTest` with
+    VMware installed;
+  - VirtualBox as a third hypervisor (it serves VNC through an extension pack);
+  - DirectX 12 in the guest: neither hypervisor offers it, so a DX12-only game can't run in a VM;
+  - the Remote Pilot's background mode for a VM (it drives a Linux private display only);
+  - the guest's processes are out of sight: a recovery restart can't stop the game, only start it again,
+    `Target.isRunning()` answers whether the VM is open rather than whether the game runs, and a run starts
+    the game again after ▶ Launch game started it. Ask the guest agent (`guest-exec` with output: `tasklist`,
+    `taskkill`) once the game's process is known;
+  - the frame rate over VNC while the guest's screen moves, measured with a game.
 - **Waydroid on gamescope instead of Xephyr — measure first.** A Waydroid session is Wayland → inner
   `gamescope --backend sdl` → Xephyr (software, CPU-blitting) → host X; users report it laggy where a
   gamescope-only launch is not. Try swapping the *outer* display to gamescope, keeping the inner
