@@ -2,6 +2,7 @@ package com.botmaker.session.impl;
 
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
+import com.botmaker.shared.vm.GuestLauncher;
 import com.botmaker.shared.vm.VmCredentials;
 import com.botmaker.shared.vm.VmInventory;
 import com.botmaker.shared.vm.VmRecord;
@@ -63,6 +64,11 @@ final class HypervisorVm implements VmMachine {
     @Override
     public void run(String command) throws IOException, InterruptedException {
         VmSetup.runOnDesktop(vm, credentials, command);
+    }
+
+    @Override
+    public boolean has(GuestLauncher launcher) throws IOException, InterruptedException {
+        return VmSetup.guestHas(vm, credentials, launcher);
     }
 
     private record Screen(VmSetup.Running running, boolean booted) implements Connection {

@@ -34,7 +34,8 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
   for its Windows to sign in. `launch` starts the game on the guest's desktop. When Windows restarts the guest
   (an update), QEMU ends (`-no-reboot`); the session starts it again, launches the game again, and its
   `controller()` follows the new connection. After five restarts in a row it reports `DEAD`. `close` leaves
-  the VM running.
+  the VM running. A Steam or Epic launch whose launcher the guest lacks is refused before it runs, saying
+  where to install it: Windows would only have offered to find an app for the link.
 - `display.BackendInstall`: the command that installs a missing gamescope or Xephyr on this distro (dnf, apt,
   pacman, zypper, read from `/etc/os-release`), run through `pkexec`; on an image-based system
   (`rpm-ostree`) the command to copy and restart after.

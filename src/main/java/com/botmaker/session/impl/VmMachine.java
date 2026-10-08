@@ -2,6 +2,7 @@ package com.botmaker.session.impl;
 
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
+import com.botmaker.shared.vm.GuestLauncher;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -23,6 +24,9 @@ interface VmMachine {
 
     /** Runs a Windows command line on the guest's desktop, without waiting for it. */
     void run(String command) throws IOException, InterruptedException;
+
+    /** Whether {@code launcher} is installed in the guest. */
+    boolean has(GuestLauncher launcher) throws IOException, InterruptedException;
 
     /** One connection to the VM's screen. Closing it leaves the VM running. */
     interface Connection extends AutoCloseable {

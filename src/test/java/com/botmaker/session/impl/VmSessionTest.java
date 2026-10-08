@@ -7,6 +7,7 @@ import com.botmaker.session.VmOptions;
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
 import com.botmaker.shared.launch.LaunchSpec;
+import com.botmaker.shared.vm.GuestLauncher;
 import org.junit.jupiter.api.Test;
 
 import java.awt.Rectangle;
@@ -14,6 +15,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
 
@@ -48,6 +50,22 @@ class VmSessionTest {
             assertEquals(null, session.capture(), "detached: no window to capture");
         }
         assertTrue(vm.connections.get(0).closed, "closing disconnects");
+    }
+
+    @Test
+    void aGameWhoseLauncherTheGuestLacksIsRefusedBeforeAnythingRuns() throws Exception {
+        FakeVm vm = new FakeVm();
+        try (VmSession session = VmSession.start(vm, OPTIONS, FAST)) {
+            IllegalStateException e = assertThrows(IllegalStateException.class,
+                    () -> session.launch(LaunchSpec.parse("epic:Fortnite")));
+            assertTrue(e.getMessage().startsWith("Epic Games Launcher isn't installed in the game VM game."),
+                    e.getMessage());
+            assertEquals(List.of(), vm.commands, "Windows would only offer to find an app for the link");
+
+            vm.launchers = Set.of(GuestLauncher.STEAM, GuestLauncher.EPIC);
+            session.launch(LaunchSpec.parse("epic:Fortnite"));
+            assertEquals(1, vm.commands.size());
+        }
     }
 
     @Test
@@ -106,6 +124,7 @@ class VmSessionTest {
         volatile int readyAsked;
         volatile int startsAsked;
         volatile boolean failStarts;
+        volatile Set<GuestLauncher> launchers = Set.of(GuestLauncher.STEAM);
 
         @Override
         public String name() {
@@ -129,6 +148,11 @@ class VmSessionTest {
         @Override
         public void run(String command) {
             commands.add(command);
+        }
+
+        @Override
+        public boolean has(GuestLauncher launcher) {
+            return launchers.contains(launcher);
         }
     }
 

@@ -10,6 +10,7 @@ import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
 import com.botmaker.shared.launch.LaunchSpec;
 import com.botmaker.shared.vm.GuestLaunch;
+import com.botmaker.shared.vm.GuestLauncher;
 
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -169,7 +170,7 @@ public final class VmSession implements DesktopSession {
         LaunchSpec again = launched;
         if (next.booted() && again != null) {
             try {
-                launch(again);
+                start(again, false);
             } catch (RuntimeException e) {
                 // The VM is back without its game: not healthy.
                 Diag.error("[Session] VM " + machine.name() + ": " + e.getMessage());
@@ -219,9 +220,15 @@ public final class VmSession implements DesktopSession {
      */
     @Override
     public void launch(LaunchSpec spec) {
+        start(spec, true);
+    }
+
+    /** {@link #launch}; {@code checkLauncher} off for a relaunch, whose launcher passed when it first launched. */
+    private void start(LaunchSpec spec, boolean checkLauncher) {
         String command = GuestLaunch.command(spec).orElseThrow(() -> new IllegalArgumentException(
                 "A game VM can't start " + spec.describe() + ": it runs a Windows game by path, command, Steam or Epic."));
         try {
+            if (checkLauncher) requireLauncher(GuestLauncher.of(spec));
             machine.run(command);
         } catch (IOException e) {
             throw new IllegalStateException("The game VM " + machine.name() + " couldn't start "
@@ -233,6 +240,27 @@ public final class VmSession implements DesktopSession {
         launched = spec;
         attached = true;
         Diag.log("[Session] VM " + machine.name() + ": started " + spec.describe());
+    }
+
+    /**
+     * Stops a launch the guest can't answer: without its store launcher, Windows only offers to find an app for
+     * the link, and the launch would look like it worked. A check that can't be made doesn't stop it.
+     */
+    private void requireLauncher(GuestLauncher launcher) throws InterruptedException {
+        if (launcher == GuestLauncher.UNKNOWN) return;
+        boolean has;
+        try {
+            has = machine.has(launcher);
+        } catch (IOException e) {
+            Diag.log("[Session] VM " + machine.name() + ": couldn't check for " + launcher.displayName() + ": "
+                    + e.getMessage());
+            return;
+        }
+        if (!has) {
+            throw new IllegalStateException(launcher.displayName() + " isn't installed in the game VM " + machine.name()
+                    + ". In ⚙ Bot Settings ▸ A virtual machine ▸ Open VM screen, install it, sign in, and install "
+                    + "the game there.");
+        }
     }
 
     @Override

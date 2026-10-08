@@ -8,7 +8,8 @@ History before 2026-07-30 (when this stack was `com.botmaker.shared.session`) is
 
 - **Game VM, what's left** (`../docs/refactor/44-windows-isolation.md` §4b):
   - VMware Workstation's route is unit-tested only: check `VmSetupLiveTest` and `VmSessionLiveTest` with
-    VMware installed;
+    VMware installed, and a launcher install through `vmrun runProgramInGuest`, which runs as the guest's
+    user rather than SYSTEM, so a per-machine `msiexec /qn` may be refused without elevation;
   - VirtualBox as a third hypervisor (it serves VNC through an extension pack);
   - DirectX 12 in the guest: neither hypervisor offers it, so a DX12-only game can't run in a VM;
   - the Remote Pilot's background mode for a VM (it drives a Linux private display only);
