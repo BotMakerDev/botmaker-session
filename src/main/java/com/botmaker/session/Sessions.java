@@ -3,6 +3,7 @@ package com.botmaker.session;
 import com.botmaker.session.impl.AdoptedSession;
 import com.botmaker.session.impl.HostSession;
 import com.botmaker.session.impl.NestedSession;
+import com.botmaker.session.impl.VmSession;
 import com.botmaker.session.process.SessionReaper;
 import com.botmaker.shared.capture.NativeController;
 
@@ -18,6 +19,7 @@ import java.util.Optional;
  *
  * <ul>
  *   <li>{@link #startPrivate}: bring up a private display of our own;</li>
+ *   <li>{@link #startVm}: open a game VM, the Windows route to a screen of the bot's own;</li>
  *   <li>{@link #offered()}: adopt the one the process that started us handed over ({@link #handoffArguments});</li>
  *   <li>{@link #host()}: the user's real desktop;</li>
  *   <li>{@link #reapOrphans()}: sweep what a crashed process left behind.</li>
@@ -33,6 +35,15 @@ public final class Sessions {
      */
     public static PrivateSession startPrivate(SessionOptions options) throws SessionStartException {
         return NestedSession.start(options);
+    }
+
+    /**
+     * Opens the game VM that Studio set up under {@code options}' name: starts it without a window if it isn't
+     * running, waits for its Windows to sign in, and connects to its screen. The session starts the VM again when
+     * Windows restarts it; closing the session leaves the VM running.
+     */
+    public static DesktopSession startVm(VmOptions options) throws SessionStartException {
+        return VmSession.start(options);
     }
 
     /**

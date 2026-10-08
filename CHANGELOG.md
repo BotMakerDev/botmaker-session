@@ -28,6 +28,13 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 - `launch.LaunchIsolation` and `display.GamescopeHost` moved in from botmaker-shared.
 
 ### Added
+- **A game VM as a session: `Sessions.startVm(VmOptions)`.** On Windows, the game runs in a VM that Studio
+  set up, and the bot drives the VM's screen over VNC: its clicks and keys reach the guest as hardware, and
+  the user's own cursor stays free. The session starts the VM without a window if it isn't running and waits
+  for its Windows to sign in. `launch` starts the game on the guest's desktop. When Windows restarts the guest
+  (an update), QEMU ends (`-no-reboot`); the session starts it again, launches the game again, and its
+  `controller()` follows the new connection. After five restarts in a row it reports `DEAD`. `close` leaves
+  the VM running.
 - `display.BackendInstall`: the command that installs a missing gamescope or Xephyr on this distro (dnf, apt,
   pacman, zypper, read from `/etc/os-release`), run through `pkexec`; on an image-based system
   (`rpm-ostree`) the command to copy and restart after.

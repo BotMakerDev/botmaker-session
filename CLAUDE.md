@@ -37,9 +37,9 @@ is now the only thing keeping a caller out.
 
 | Package | Holds | Status |
 |---------|-------|--------|
-| `com.botmaker.session` | `Sessions` (the factory), `DesktopSession`, `PrivateSession`, `SessionBackend`, `SessionOptions`, `Capability`, `SessionHealth`, `PointerPolicy`, `SessionStartException` | the contract |
+| `com.botmaker.session` | `Sessions` (the factory), `DesktopSession`, `PrivateSession`, `SessionBackend`, `SessionOptions`, `VmOptions`, `Capability`, `SessionHealth`, `PointerPolicy`, `SessionStartException` | the contract |
 | `…session.display` | `SessionDisplay` + the two backends (`NestedDisplay`/Xephyr, `GamescopeDisplay`), `DisplayReadiness`, `SessionBackends`, `BackendInstall`, `SessionHostWindow`, `GamescopeHost` | plumbing; `SessionBackends`/`BackendInstall`/`GamescopeHost` are read by the SDK |
-| `…session.impl` | `NestedSession` (with `HostWindowHider`, `PrivateLaunch`), `AdoptedSession`, `HostSession`, `SessionAttachment` | implementation: **nothing outside `impl` imports it but `Sessions`** |
+| `…session.impl` | `NestedSession` (with `HostWindowHider`, `PrivateLaunch`), `AdoptedSession`, `HostSession`, `SessionAttachment`, `VmSession` (a Windows game VM over VNC, with `VmMachine`/`HypervisorVm`) | implementation: **nothing outside `impl` imports it but `Sessions`** |
 | `…session.process` | `SessionReaper` (also the live-session registry the orphan sweep spares), `SessionMembers`, `SessionBus`, `AppOutputLog` | plumbing |
 | `…session.remote` | `DisplayLink` + `RemoteDisplay`/`LocalDisplay`, `DisplayAgent`, `DisplayAgentProcess`, `AgentProtocol`, `WindowIds` | `DisplayLink`/`WindowIds` are API; the rest is plumbing |
 | `…session.launch` | `BackgroundLauncher`, `LaunchIsolation` | API |

@@ -1,0 +1,195 @@
+package com.botmaker.session.impl;
+
+import com.botmaker.session.Capability;
+import com.botmaker.session.SessionHealth;
+import com.botmaker.session.SessionStartException;
+import com.botmaker.session.VmOptions;
+import com.botmaker.shared.capture.GenericWindow;
+import com.botmaker.shared.capture.NativeController;
+import com.botmaker.shared.launch.LaunchSpec;
+import org.junit.jupiter.api.Test;
+
+import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BooleanSupplier;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/** A VM session over a stand-in VM: start, launch, a guest restart, giving up, and a guest that never signs in. */
+class VmSessionTest {
+
+    private static final VmSession.Timing FAST = new VmSession.Timing(Duration.ofMillis(10), Duration.ZERO);
+    private static final VmOptions OPTIONS = new VmOptions("game", Duration.ofMillis(300));
+
+    @Test
+    void itWaitsForTheGuestThenShowsItsScreenAndStartsTheGameThere() throws Exception {
+        FakeVm vm = new FakeVm();
+        vm.readyAfter = 3;
+        try (VmSession session = VmSession.start(vm, OPTIONS, FAST)) {
+            assertEquals(3, vm.readyAsked, "it waited for the guest");
+            assertTrue(session.has(Capability.BACKGROUND_CLICK));
+            assertEquals(new Rectangle(0, 0, 800, 600), session.screen());
+            assertEquals("VM game", session.displayName());
+            assertSame(vm.connections.get(0).frame, session.capture());
+
+            session.launch(LaunchSpec.parse("steam:570"));
+            assertEquals(List.of("start \"\" \"steam://rungameid/570\""), vm.commands);
+            assertThrows(IllegalArgumentException.class, () -> session.launch(LaunchSpec.parse("heroic:abc")));
+
+            session.attach(null);
+            assertEquals(null, session.capture(), "detached: no window to capture");
+        }
+        assertTrue(vm.connections.get(0).closed, "closing disconnects");
+    }
+
+    @Test
+    void whenWindowsRestartsTheGuestItStartsTheVmAgainAndTheGameWithIt() throws Exception {
+        FakeVm vm = new FakeVm();
+        try (VmSession session = VmSession.start(vm, OPTIONS, FAST)) {
+            NativeController input = session.controller();
+            session.launch(LaunchSpec.parse("exe:C:\\Games\\g.exe"));
+
+            vm.connections.get(0).alive = false; // QEMU ended: -no-reboot
+            await(() -> vm.connections.size() == 2 && session.health() == SessionHealth.HEALTHY);
+
+            FakeConnection now = vm.connections.get(1);
+            assertTrue(vm.connections.get(0).closed);
+            assertEquals(List.of("start \"\" \"C:\\Games\\g.exe\"", "start \"\" \"C:\\Games\\g.exe\""), vm.commands,
+                    "the restart closed the game: it is started again");
+            assertSame(input, session.controller());
+            input.mouseMove(5, 6);
+            assertEquals(List.of("move 5,6"), now.input.events, "the bot's controller follows the new connection");
+            assertNotSame(vm.connections.get(0).frame, session.captureScreen());
+        }
+    }
+
+    @Test
+    void aVmThatKeepsDroppingIsGivenUp() throws Exception {
+        FakeVm vm = new FakeVm();
+        try (VmSession session = VmSession.start(vm, OPTIONS, FAST)) {
+            vm.failStarts = true;
+            vm.connections.get(0).alive = false;
+            await(() -> session.health() == SessionHealth.DEAD);
+            assertEquals(1 + VmSession.MAX_RESTARTS, vm.startsAsked);
+        }
+    }
+
+    @Test
+    void aGuestThatNeverSignsInFailsTheStartAndLeavesNothingOpen() {
+        FakeVm vm = new FakeVm();
+        vm.readyAfter = Integer.MAX_VALUE;
+        SessionStartException e = assertThrows(SessionStartException.class, () -> VmSession.start(vm, OPTIONS, FAST));
+        assertTrue(e.getMessage().contains("didn't sign in"), e.getMessage());
+        assertTrue(vm.connections.get(0).closed);
+    }
+
+    private static void await(BooleanSupplier condition) throws InterruptedException {
+        long until = System.nanoTime() + 5_000_000_000L;
+        while (!condition.getAsBoolean()) {
+            if (System.nanoTime() > until) throw new AssertionError("timed out");
+            Thread.sleep(10);
+        }
+    }
+
+    private static final class FakeVm implements VmMachine {
+        final List<FakeConnection> connections = new CopyOnWriteArrayList<>();
+        final List<String> commands = new CopyOnWriteArrayList<>();
+        volatile int readyAfter = 1;
+        volatile int readyAsked;
+        volatile int startsAsked;
+        volatile boolean failStarts;
+
+        @Override
+        public String name() {
+            return "game";
+        }
+
+        @Override
+        public Connection start() throws IOException {
+            startsAsked++;
+            if (failStarts) throw new IOException("QEMU didn't start.");
+            FakeConnection c = new FakeConnection(true);
+            connections.add(c);
+            return c;
+        }
+
+        @Override
+        public boolean guestReady() {
+            return ++readyAsked >= readyAfter;
+        }
+
+        @Override
+        public void run(String command) {
+            commands.add(command);
+        }
+    }
+
+    private static final class FakeConnection implements VmMachine.Connection {
+        final BufferedImage frame = new BufferedImage(800, 600, BufferedImage.TYPE_INT_RGB);
+        final RecordingInput input = new RecordingInput();
+        final boolean booted;
+        volatile boolean alive = true;
+        volatile boolean closed;
+
+        FakeConnection(boolean booted) {
+            this.booted = booted;
+        }
+
+        @Override
+        public NativeController controller() {
+            return input;
+        }
+
+        @Override
+        public GenericWindow window() {
+            return new GenericWindow(this, "game", new Rectangle(0, 0, 800, 600));
+        }
+
+        @Override
+        public BufferedImage capture() {
+            return frame;
+        }
+
+        @Override
+        public boolean alive() {
+            return alive && !closed;
+        }
+
+        @Override
+        public boolean booted() {
+            return booted;
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+        }
+    }
+
+    private static final class RecordingInput implements NativeController {
+        final List<String> events = new CopyOnWriteArrayList<>();
+
+        @Override public GenericWindow getForegroundWindow() { return null; }
+        @Override public List<GenericWindow> getChildWindows(GenericWindow parent) { return List.of(); }
+        @Override public List<GenericWindow> getAllWindows() { return List.of(); }
+        @Override public BufferedImage captureWindow(GenericWindow window) { return null; }
+        @Override public void postLeftClick(GenericWindow window, int x, int y) { events.add("post " + x + "," + y); }
+        @Override public void focusWindow(GenericWindow window) { }
+        @Override public void moveWindow(GenericWindow window, int x, int y) { }
+        @Override public void resizeWindow(GenericWindow window, int width, int height) { }
+        @Override public void keyDown(int key) { events.add("down " + key); }
+        @Override public void keyUp(int key) { events.add("up " + key); }
+        @Override public void typeText(String text) { events.add("type " + text); }
+        @Override public void mouseMove(int x, int y) { events.add("move " + x + "," + y); }
+        @Override public void mouseButton(int button, boolean press) { events.add("button " + button + " " + press); }
+        @Override public void scroll(int amount) { events.add("scroll " + amount); }
+    }
+}
