@@ -6,6 +6,7 @@ import com.botmaker.shared.capture.NativeController;
 import com.botmaker.shared.launch.LaunchSpec;
 import com.botmaker.shared.vm.GuestGame;
 import com.botmaker.shared.vm.GuestLauncher;
+import com.botmaker.shared.vm.GuestOs;
 import com.botmaker.shared.vm.GuestWindows;
 import com.botmaker.shared.vm.Hypervisor;
 import com.botmaker.shared.vm.QmpEvents;
@@ -45,6 +46,10 @@ final class HypervisorVm implements VmMachine {
         if (vm.stage() != VmRecord.Stage.READY) {
             throw new IOException("The game VM \"" + name + "\" isn't set up yet (" + vm.stage().displayName()
                     + "). Finish its setup in ⚙ Bot Settings.");
+        }
+        if (vm.guestOs() != GuestOs.WINDOWS) {
+            throw new IOException("A bot can't run in the " + vm.guestOs().displayName() + " game VM \"" + name
+                    + "\" yet: pick a Windows one in ⚙ Bot Settings.");
         }
         VmCredentials credentials = VmCredentials.load(vm.folder())
                 .orElseThrow(() -> new IOException("The game VM \"" + name + "\" has lost its passwords."));
