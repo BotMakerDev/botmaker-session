@@ -7,9 +7,10 @@ History before 2026-07-30 (when this stack was `com.botmaker.shared.session`) is
 ## Open
 
 - **Game VM, what's left** (`../docs/refactor/44-windows-isolation.md` §4b):
-  - VMware Workstation's route is unit-tested only: check `VmSetupLiveTest` and `VmSessionLiveTest` with
-    VMware installed, and a launcher install through `vmrun runProgramInGuest`, which runs as the guest's
-    user rather than SYSTEM, so a per-machine `msiexec /qn` may be refused without elevation;
+  - `VmSessionLiveTest` with VMware (`VmSetupLiveTest` passes there, set up with nobody at the keyboard);
+  - a new VMware VM's first sign-in: `vmrun fileExistsInGuest` saw the ready file 8 minutes after it was
+    written, with Tools already running (§4b.2.5). Keep `vmrun`'s answer while the check fails, to learn why;
+  - a new VM's clock: the answer file names no time zone, so the guest is on US Pacific time;
   - VirtualBox as a third hypervisor (it serves VNC through an extension pack);
   - DirectX 12 and Vulkan in the guest: neither hypervisor offers them, so a DX12- or Vulkan-only game can't
     run in a VM; a Linux guest has no GPU at all (Wine and Proton draw in software);
