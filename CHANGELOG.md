@@ -28,6 +28,14 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 - `launch.LaunchIsolation` and `display.GamescopeHost` moved in from botmaker-shared.
 
 ### Added
+- **`DesktopSession.running(spec)` and `stop(spec)`**: whether the game runs in the session, and ending it, where
+  only the session can tell. The defaults are `RunState.UNKNOWN` and `false`, so the caller asks this computer.
+  A game VM's session asks its guest (`VmMachine.game`). A VM that was shut down runs nothing, and a guest that
+  can't be asked is `UNKNOWN`, with the reason logged.
+  - A game VM's `launch` leaves a game that already runs there as it is, rather than start a second copy, and
+    still starts it again after a guest restart. The guest isn't asked before the first launch into a VM the
+    session booted.
+  - Its `stop` then waits 3 s, so Steam sees the game end before the next launch.
 - **A game VM's session lists the guest's windows.** Once the guest has signed in, and after each restart, the
   session starts the guest's window list (`VmMachine.listWindows`). Its `controller()` then returns the guest's
   windows from `getAllWindows`, so a bot finds and captures a window inside the VM. A list that can't be

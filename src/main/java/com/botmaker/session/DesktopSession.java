@@ -6,6 +6,7 @@ import com.botmaker.session.video.VideoPacket;
 import com.botmaker.session.video.VideoStream;
 
 import com.botmaker.shared.launch.LaunchSpec;
+import com.botmaker.shared.launch.RunState;
 
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
@@ -165,6 +166,22 @@ public interface DesktopSession extends AutoCloseable {
      */
     default Optional<String> endedBecause() {
         return Optional.empty();
+    }
+
+    /**
+     * Whether {@code spec} runs in this session, where only the session can tell: a game VM asks its guest, whose
+     * processes this computer doesn't see. {@link RunState#UNKNOWN} by default, and the caller asks this computer.
+     */
+    default RunState running(LaunchSpec spec) {
+        return RunState.UNKNOWN;
+    }
+
+    /**
+     * Ends {@code spec}'s processes in this session, for a restart from a clean state; {@code false} when there was
+     * nothing to end, or the session can't (the default: the caller stops it on this computer).
+     */
+    default boolean stop(LaunchSpec spec) {
+        return false;
     }
 
     /**

@@ -7,6 +7,8 @@ import com.botmaker.session.VmOptions;
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
 import com.botmaker.shared.launch.LaunchSpec;
+import com.botmaker.shared.launch.RunState;
+import com.botmaker.shared.vm.GuestGame;
 import com.botmaker.shared.vm.GuestLauncher;
 import com.botmaker.shared.vm.QmpEvents;
 import org.junit.jupiter.api.Test;
@@ -22,6 +24,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** A VM session over a stand-in VM: start, launch, a guest restart, giving up, and a guest that never signs in. */
 class VmSessionTest {
 
-    private static final VmSession.Timing FAST = new VmSession.Timing(Duration.ofMillis(10), Duration.ZERO);
+    private static final VmSession.Timing FAST = new VmSession.Timing(Duration.ofMillis(10), Duration.ZERO, Duration.ZERO);
     private static final VmOptions OPTIONS = new VmOptions("game", Duration.ofMillis(300));
 
     @Test
@@ -53,6 +56,43 @@ class VmSessionTest {
             assertEquals(null, session.capture(), "detached: no window to capture");
         }
         assertTrue(vm.connections.get(0).closed, "closing disconnects");
+    }
+
+    @Test
+    void theGameRunsAndStopsInTheGuestAndAGuestThatCantBeAskedIsUnknown() throws Exception {
+        FakeVm vm = new FakeVm();
+        LaunchSpec notepad = LaunchSpec.parse("exe:notepad.exe");
+        try (VmSession session = VmSession.start(vm, OPTIONS, FAST)) {
+            assertEquals(RunState.STOPPED, session.running(notepad));
+            assertFalse(session.stop(notepad), "nothing to end");
+
+            vm.processes = List.of("Notepad.exe (42)");
+            assertEquals(RunState.RUNNING, session.running(notepad));
+            assertTrue(session.stop(notepad));
+            assertEquals(List.of(notepad, notepad), vm.stopped);
+            assertEquals(RunState.STOPPED, session.running(notepad));
+
+            vm.guestAnswers = false;
+            assertEquals(RunState.UNKNOWN, session.running(notepad));
+            assertFalse(session.stop(notepad));
+        }
+    }
+
+    @Test
+    void aGameTheLastRunLeftRunningIsntStartedTwiceAndARestartStartsItAgain() throws Exception {
+        FakeVm vm = new FakeVm();
+        vm.bootNext = false;
+        vm.processes = List.of("game.exe (17)");
+        LaunchSpec game = LaunchSpec.parse("exe:C:\\Games\\g\\game.exe");
+        try (VmSession session = VmSession.start(vm, OPTIONS, FAST)) {
+            session.launch(game);
+            assertEquals(List.of(), vm.commands, "it already runs");
+
+            vm.bootNext = true;
+            vm.processes = List.of();
+            vm.connections.get(0).alive = false; // Windows restarted the guest
+            await(() -> vm.commands.size() == 1); // the game is started again after the restart
+        }
     }
 
     @Test
@@ -173,6 +213,10 @@ class VmSessionTest {
         volatile boolean bootNext = true;
         volatile Set<GuestLauncher> launchers = Set.of(GuestLauncher.STEAM);
         volatile int windowListsStarted;
+        /** The game's processes in the guest. */
+        volatile List<String> processes = List.of();
+        final List<LaunchSpec> stopped = new CopyOnWriteArrayList<>();
+        volatile boolean guestAnswers = true;
 
         @Override
         public String name() {
@@ -206,6 +250,17 @@ class VmSessionTest {
         @Override
         public void listWindows() {
             windowListsStarted++;
+        }
+
+        @Override
+        public GuestGame.Found game(LaunchSpec spec, boolean stop) throws IOException {
+            if (!guestAnswers) throw new IOException("The guest didn't answer.");
+            List<String> found = processes;
+            if (stop) {
+                stopped.add(spec);
+                processes = List.of();
+            }
+            return new GuestGame.Found(found.isEmpty() ? RunState.STOPPED : RunState.RUNNING, found, List.of());
         }
     }
 

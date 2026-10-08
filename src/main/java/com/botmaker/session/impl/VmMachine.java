@@ -2,6 +2,8 @@ package com.botmaker.session.impl;
 
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
+import com.botmaker.shared.launch.LaunchSpec;
+import com.botmaker.shared.vm.GuestGame;
 import com.botmaker.shared.vm.GuestLauncher;
 import com.botmaker.shared.vm.QmpEvents;
 
@@ -36,6 +38,9 @@ interface VmMachine {
      * guest has signed in, and again after each start, as a guest restart ends it.
      */
     void listWindows() throws IOException, InterruptedException;
+
+    /** {@code spec}'s processes in the guest, ended first with {@code stop}. */
+    GuestGame.Found game(LaunchSpec spec, boolean stop) throws IOException, InterruptedException;
 
     /** One connection to the VM's screen. Closing it leaves the VM running. */
     interface Connection extends AutoCloseable {

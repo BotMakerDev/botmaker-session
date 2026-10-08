@@ -9,6 +9,8 @@ import com.botmaker.shared.Diag;
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
 import com.botmaker.shared.launch.LaunchSpec;
+import com.botmaker.shared.launch.RunState;
+import com.botmaker.shared.vm.GuestGame;
 import com.botmaker.shared.vm.GuestLaunch;
 import com.botmaker.shared.vm.GuestLauncher;
 import com.botmaker.shared.vm.QmpEvents;
@@ -28,7 +30,8 @@ import java.util.Set;
  * {@link #controller()} lists the guest's own windows on it (the guest's window list, started at each connection).
  * The bot stays on the host; its clicks and keys reach the guest through the hypervisor's virtual mouse and
  * keyboard, so the guest sees hardware and the user's own cursor stays free. {@link #launch} starts the game on
- * the guest's desktop ({@link GuestLaunch}).
+ * the guest's desktop ({@link GuestLaunch}); {@link #running} and {@link #stop} find the game's processes there
+ * ({@link GuestGame}).
  *
  * <p><b>It keeps the VM going.</b> QEMU runs with {@code -no-reboot}, as a restart inside it hangs under the
  * Windows Hypervisor Platform (doc 44 §4b.2.1), so when Windows restarts the guest (an update) QEMU ends and the
@@ -51,11 +54,13 @@ public final class VmSession implements DesktopSession {
     private static final Duration ENDED_WAIT = Duration.ofSeconds(5);
 
     /**
-     * How often the watcher looks at the screen, and how long a boot gets after the guest tools answer before a
-     * launch: the tools start before the user's desktop does, and the launch task needs that desktop.
+     * How often the watcher looks at the screen; how long a boot gets after the guest tools answer before a
+     * launch, as the tools start before the user's desktop does and the launch task needs that desktop; and how
+     * long a stopped game's store launcher gets to see it end, as Steam ignores a launch of a game it still
+     * thinks runs.
      */
-    record Timing(Duration watch, Duration settle) {
-        static final Timing DEFAULT = new Timing(Duration.ofSeconds(1), Duration.ofSeconds(20));
+    record Timing(Duration watch, Duration settle, Duration afterStop) {
+        static final Timing DEFAULT = new Timing(Duration.ofSeconds(1), Duration.ofSeconds(20), Duration.ofSeconds(3));
     }
 
     private final VmMachine machine;
@@ -243,13 +248,22 @@ public final class VmSession implements DesktopSession {
 
     /**
      * Starts {@code spec} on the guest's desktop, where the game is the guest's own: a path names a file in the
-     * guest, and Steam or Epic is the launcher installed there.
+     * guest, and Steam or Epic is the launcher installed there. A game already running there (the last run's) is
+     * left as it is, as a second copy of a program would run beside it; before the first launch into a VM this
+     * session booted, nothing can be, and the guest isn't asked.
      *
      * @throws IllegalArgumentException for a kind a Windows guest can't start
      * @throws IllegalStateException    when the guest couldn't be reached
      */
     @Override
     public void launch(LaunchSpec spec) {
+        boolean fresh = screen.booted() && launched == null;
+        if (!fresh && running(spec) == RunState.RUNNING) {
+            launched = spec;
+            attached = true;
+            Diag.log("[Session] VM " + machine.name() + ": " + spec.describe() + " already runs");
+            return;
+        }
         start(spec, true);
     }
 
@@ -291,6 +305,47 @@ public final class VmSession implements DesktopSession {
                     + ". In ⚙ Bot Settings ▸ A virtual machine ▸ Open VM screen, install it, sign in, and install "
                     + "the game there.");
         }
+    }
+
+    /**
+     * Asks the guest ({@link GuestGame}); a VM shut down runs nothing, and a guest that can't be asked is
+     * {@link RunState#UNKNOWN}.
+     */
+    @Override
+    public RunState running(LaunchSpec spec) {
+        if (health == SessionHealth.DEAD) return RunState.STOPPED;
+        return game(spec, false).state();
+    }
+
+    /**
+     * Ends the game's process trees in the guest, then gives its store launcher {@link Timing#afterStop()} to see
+     * it end; a guest that can't be asked, or a process that outlived it, is logged and ends nothing.
+     */
+    @Override
+    public boolean stop(LaunchSpec spec) {
+        if (health == SessionHealth.DEAD) return false;
+        GuestGame.Found found = game(spec, true);
+        boolean stopped = found.state() == RunState.RUNNING;
+        if (stopped) {
+            Diag.log("[Session] VM " + machine.name() + ": stopped " + String.join(", ", found.processes()));
+            try {
+                Thread.sleep(timing.afterStop().toMillis());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        return stopped;
+    }
+
+    private GuestGame.Found game(LaunchSpec spec, boolean stop) {
+        try {
+            return machine.game(spec, stop);
+        } catch (IOException e) {
+            Diag.log("[Session] VM " + machine.name() + ": " + e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return GuestGame.Found.UNKNOWN;
     }
 
     @Override

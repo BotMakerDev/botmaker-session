@@ -3,6 +3,8 @@ package com.botmaker.session.impl;
 import com.botmaker.shared.Diag;
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
+import com.botmaker.shared.launch.LaunchSpec;
+import com.botmaker.shared.vm.GuestGame;
 import com.botmaker.shared.vm.GuestLauncher;
 import com.botmaker.shared.vm.GuestWindows;
 import com.botmaker.shared.vm.Hypervisor;
@@ -96,6 +98,11 @@ final class HypervisorVm implements VmMachine {
     @Override
     public void listWindows() throws IOException, InterruptedException {
         GuestWindows.start(vm, credentials);
+    }
+
+    @Override
+    public GuestGame.Found game(LaunchSpec spec, boolean stop) throws IOException, InterruptedException {
+        return VmSetup.game(vm, credentials, spec, stop);
     }
 
     /** @param events {@code null} when not heard ({@link #listen}) */
