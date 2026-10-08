@@ -3,9 +3,12 @@ package com.botmaker.session.impl;
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
 import com.botmaker.shared.vm.GuestLauncher;
+import com.botmaker.shared.vm.QmpEvents;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.time.Duration;
+import java.util.Optional;
 
 /**
  * What a {@link VmSession} asks of its VM: the hypervisor's half, which {@link HypervisorVm} does with shared's
@@ -48,6 +51,13 @@ interface VmMachine {
 
         /** Whether this start booted the VM, rather than connecting to one already running. */
         boolean booted();
+
+        /**
+         * After the screen dropped: waits up to {@code wait} for the VM to end and says why it did; empty when it
+         * is still running (the screen alone dropped). A reason that {@link QmpEvents.Reason#restarts()} (a
+         * Windows restart, a crash) is to be started again; anything else stopped it for good.
+         */
+        Optional<QmpEvents.Reason> ended(Duration wait) throws InterruptedException;
 
         @Override
         void close();

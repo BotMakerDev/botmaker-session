@@ -8,6 +8,7 @@ import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
 import com.botmaker.shared.launch.LaunchSpec;
 import com.botmaker.shared.vm.GuestLauncher;
+import com.botmaker.shared.vm.QmpEvents;
 import org.junit.jupiter.api.Test;
 
 import java.awt.Rectangle;
@@ -15,6 +16,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
@@ -90,6 +92,47 @@ class VmSessionTest {
     }
 
     @Test
+    void aVmShutDownOnPurposeStaysDownAndSaysSo() throws Exception {
+        FakeVm vm = new FakeVm();
+        try (VmSession session = VmSession.start(vm, OPTIONS, FAST)) {
+            session.launch(LaunchSpec.parse("exe:C:\\Games\\g.exe"));
+            assertEquals(Optional.empty(), session.endedBecause());
+
+            vm.connections.get(0).why = Optional.of(QmpEvents.Reason.GUEST_SHUTDOWN);
+            vm.connections.get(0).alive = false;
+            await(() -> session.health() == SessionHealth.DEAD);
+
+            assertEquals(Optional.of("The game VM game was shut down (Windows shut down)."), session.endedBecause());
+            assertEquals(1, vm.startsAsked, "starting it again would undo the shutdown");
+            assertEquals(1, vm.commands.size());
+        }
+    }
+
+    @Test
+    void aCrashNobodyChoseIsStartedAgain() throws Exception {
+        FakeVm vm = new FakeVm();
+        try (VmSession session = VmSession.start(vm, OPTIONS, FAST)) {
+            vm.connections.get(0).why = Optional.of(QmpEvents.Reason.GUEST_PANIC);
+            vm.connections.get(0).alive = false;
+            await(() -> vm.connections.size() == 2 && session.health() == SessionHealth.HEALTHY);
+            assertEquals(Optional.empty(), session.endedBecause());
+        }
+    }
+
+    @Test
+    void aScreenThatDroppedWhileTheVmRunsIsConnectedAgainWithoutRelaunchingTheGame() throws Exception {
+        FakeVm vm = new FakeVm();
+        try (VmSession session = VmSession.start(vm, OPTIONS, FAST)) {
+            session.launch(LaunchSpec.parse("exe:C:\\Games\\g.exe"));
+            vm.bootNext = false;
+            vm.connections.get(0).why = Optional.empty();
+            vm.connections.get(0).alive = false;
+            await(() -> vm.connections.size() == 2 && session.health() == SessionHealth.HEALTHY);
+            assertEquals(1, vm.commands.size(), "the game never stopped");
+        }
+    }
+
+    @Test
     void aVmThatKeepsDroppingIsGivenUp() throws Exception {
         FakeVm vm = new FakeVm();
         try (VmSession session = VmSession.start(vm, OPTIONS, FAST)) {
@@ -124,6 +167,8 @@ class VmSessionTest {
         volatile int readyAsked;
         volatile int startsAsked;
         volatile boolean failStarts;
+        /** Whether the next start boots the VM, rather than finding it running. */
+        volatile boolean bootNext = true;
         volatile Set<GuestLauncher> launchers = Set.of(GuestLauncher.STEAM);
 
         @Override
@@ -135,7 +180,7 @@ class VmSessionTest {
         public Connection start() throws IOException {
             startsAsked++;
             if (failStarts) throw new IOException("QEMU didn't start.");
-            FakeConnection c = new FakeConnection(true);
+            FakeConnection c = new FakeConnection(bootNext);
             connections.add(c);
             return c;
         }
@@ -162,6 +207,8 @@ class VmSessionTest {
         final boolean booted;
         volatile boolean alive = true;
         volatile boolean closed;
+        /** Why the VM ended when the screen drops: a Windows restart unless a test says otherwise. */
+        volatile Optional<QmpEvents.Reason> why = Optional.of(QmpEvents.Reason.GUEST_RESET);
 
         FakeConnection(boolean booted) {
             this.booted = booted;
@@ -190,6 +237,11 @@ class VmSessionTest {
         @Override
         public boolean booted() {
             return booted;
+        }
+
+        @Override
+        public Optional<QmpEvents.Reason> ended(Duration wait) {
+            return why;
         }
 
         @Override

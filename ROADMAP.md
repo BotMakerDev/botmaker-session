@@ -17,7 +17,12 @@ History before 2026-07-30 (when this stack was `com.botmaker.shared.session`) is
     `Target.isRunning()` answers whether the VM is open rather than whether the game runs, and a run starts
     the game again after ▶ Launch game started it. Ask the guest agent (`guest-exec` with output: `tasklist`,
     `taskkill`) once the game's process is known;
-  - the frame rate over VNC while the guest's screen moves, measured with a game.
+  - the frame rate over VNC while the guest's screen moves, measured with a game;
+  - a VM shut down while a bot runs ends the run only at its next recovery (the watchdog's stuck timeout, or
+    a crash): until then the bot sees the last frame. The SDK could stop the run when `endedBecause()` turns
+    up;
+  - *when nothing has used it for* counts QEMU's VNC clients; a VMware VM has no such count and is never
+    shut down as unused.
 - **Waydroid on gamescope instead of Xephyr — measure first.** A Waydroid session is Wayland → inner
   `gamescope --backend sdl` → Xephyr (software, CPU-blitting) → host X; users report it laggy where a
   gamescope-only launch is not. Try swapping the *outer* display to gamescope, keeping the inner

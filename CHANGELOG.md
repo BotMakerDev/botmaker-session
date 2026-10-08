@@ -35,7 +35,9 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
   (an update), QEMU ends (`-no-reboot`); the session starts it again, launches the game again, and its
   `controller()` follows the new connection. After five restarts in a row it reports `DEAD`. `close` leaves
   the VM running. A Steam or Epic launch whose launcher the guest lacks is refused before it runs, saying
-  where to install it: Windows would only have offered to find an app for the link.
+  where to install it: Windows would only have offered to find an app for the link. Only a Windows restart
+  starts the VM again: a VM shut down on purpose (its Start menu, Studio's *Shut down VM*, Task Manager)
+  stays down, the session reports `DEAD`, and `DesktopSession.endedBecause()` says why.
 - `display.BackendInstall`: the command that installs a missing gamescope or Xephyr on this distro (dnf, apt,
   pacman, zypper, read from `/etc/os-release`), run through `pkexec`; on an image-based system
   (`rpm-ostree`) the command to copy and restart after.

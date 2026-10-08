@@ -9,6 +9,7 @@ import com.botmaker.shared.launch.LaunchSpec;
 
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -155,6 +156,15 @@ public interface DesktopSession extends AutoCloseable {
     /** The session's liveness — a nested supervisor reports {@code DEGRADED}/{@code DEAD} for chaos recovery. */
     default SessionHealth health() {
         return SessionHealth.HEALTHY;
+    }
+
+    /**
+     * Why this session ended for good, as a sentence for the user, when what it runs in was stopped on purpose
+     * (a game VM shut down): a run ends rather than start it again. Empty while it runs, or while
+     * {@link SessionHealth#DEAD} means only that rebuilding it may help.
+     */
+    default Optional<String> endedBecause() {
+        return Optional.empty();
     }
 
     /**

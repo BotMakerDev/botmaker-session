@@ -11,6 +11,7 @@ import com.botmaker.shared.capture.NativeController;
 import com.botmaker.shared.launch.LaunchSpec;
 import com.botmaker.shared.vm.GuestLaunch;
 import com.botmaker.shared.vm.GuestLauncher;
+import com.botmaker.shared.vm.QmpEvents;
 
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -29,8 +31,10 @@ import java.util.Set;
  *
  * <p><b>It keeps the VM going.</b> QEMU runs with {@code -no-reboot}, as a restart inside it hangs under the
  * Windows Hypervisor Platform (doc 44 §4b.2.1), so when Windows restarts the guest (an update) QEMU ends and the
- * screen drops. A watcher sees the screen drop, starts the VM again, waits for the guest to sign in, and launches
- * the last target again, as the restart closed it. {@link #controller()} follows each new connection, so a bot
+ * screen drops. A watcher sees the screen drop and asks why ({@link VmMachine.Connection#ended}): after a restart
+ * it starts the VM again, waits for the guest to sign in, and launches the last target again, as the restart
+ * closed it. A VM shut down on purpose stays down: the session is {@link SessionHealth#DEAD} and
+ * {@link #endedBecause()} says why. {@link #controller()} follows each new connection, so a bot
  * holding it keeps working. After {@value #MAX_RESTARTS} restarts within {@link #CALM} of each other it gives
  * up and reports {@link SessionHealth#DEAD}.
  *
@@ -42,6 +46,8 @@ public final class VmSession implements DesktopSession {
     static final int MAX_RESTARTS = 5;
     /** A connection that has lasted this long resets the restart count. */
     static final Duration CALM = Duration.ofMinutes(10);
+    /** How long a dropped screen waits to hear the VM end: QEMU says why, then exits. */
+    private static final Duration ENDED_WAIT = Duration.ofSeconds(5);
 
     /**
      * How often the watcher looks at the screen, and how long a boot gets after the guest tools answer before a
@@ -62,6 +68,8 @@ public final class VmSession implements DesktopSession {
     private volatile LaunchSpec launched;
     private volatile SessionHealth health = SessionHealth.HEALTHY;
     private volatile boolean closed;
+    /** Why the VM stopped for good, once it has. */
+    private volatile String ended;
     /** Touched by the watcher thread only. */
     private int restarts;
     private long connectedAt = System.nanoTime();
@@ -134,6 +142,21 @@ public final class VmSession implements DesktopSession {
                 if (restarts > 0 && System.nanoTime() - connectedAt > CALM.toNanos()) restarts = 0;
                 continue;
             }
+            Optional<QmpEvents.Reason> why;
+            try {
+                why = screen.ended(ENDED_WAIT);
+            } catch (InterruptedException e) {
+                return; // closed
+            }
+            if (closed) return; // closing the session ends its listener too, which is no shutdown
+            if (why.isPresent() && !why.get().restarts()) {
+                // Shut down on purpose (its Start menu, Studio's Shut down, Task Manager): starting it again
+                // would undo what the user did.
+                ended = "The game VM " + machine.name() + " was shut down (" + why.get().displayName() + ").";
+                health = SessionHealth.DEAD;
+                Diag.log("[Session] VM " + machine.name() + ": " + why.get().displayName() + "; not starting it again");
+                return;
+            }
             if (restarts >= MAX_RESTARTS) {
                 health = SessionHealth.DEAD;
                 Diag.error("[Session] VM " + machine.name() + ": its screen dropped " + MAX_RESTARTS
@@ -142,8 +165,8 @@ public final class VmSession implements DesktopSession {
             }
             restarts++;
             health = SessionHealth.DEGRADED;
-            Diag.log("[Session] VM " + machine.name() + ": its screen dropped (Windows restarted it, or it stopped);"
-                    + " starting it again");
+            Diag.log("[Session] VM " + machine.name() + ": its screen dropped ("
+                    + why.map(QmpEvents.Reason::displayName).orElse("the VM still runs") + "); connecting again");
             reconnect();
         }
     }
@@ -276,6 +299,11 @@ public final class VmSession implements DesktopSession {
     @Override
     public SessionHealth health() {
         return health;
+    }
+
+    @Override
+    public Optional<String> endedBecause() {
+        return Optional.ofNullable(ended);
     }
 
     /** The screen's input, following each new connection the watcher makes. */

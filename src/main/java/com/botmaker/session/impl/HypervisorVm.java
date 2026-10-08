@@ -1,8 +1,11 @@
 package com.botmaker.session.impl;
 
+import com.botmaker.shared.Diag;
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
 import com.botmaker.shared.vm.GuestLauncher;
+import com.botmaker.shared.vm.Hypervisor;
+import com.botmaker.shared.vm.QmpEvents;
 import com.botmaker.shared.vm.VmCredentials;
 import com.botmaker.shared.vm.VmInventory;
 import com.botmaker.shared.vm.VmRecord;
@@ -10,6 +13,8 @@ import com.botmaker.shared.vm.VmSetup;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.time.Duration;
+import java.util.Optional;
 
 /**
  * A game VM that Studio set up, driven through shared's {@code VmSetup}: VMware or QEMU, by its record. Its
@@ -53,7 +58,23 @@ final class HypervisorVm implements VmMachine {
         boolean wasRunning = VmInventory.running(vm);
         VmSetup.Running running = VmSetup.start(vm, credentials);
         vm = running.vm();
-        return new Screen(running, !wasRunning);
+        return new Screen(running, !wasRunning, listen(vm));
+    }
+
+    /**
+     * {@code vm}'s events, so a dropped screen can tell a Windows restart from a shutdown; {@code null} for VMware,
+     * whose screen survives a restart, and for a QEMU started before VMs had an events port, or whose port another
+     * listener holds.
+     */
+    private static QmpEvents listen(VmRecord vm) {
+        if (vm.hypervisor() != Hypervisor.QEMU || vm.eventsPort() == 0) return null;
+        try {
+            return QmpEvents.listen(vm.eventsPort());
+        } catch (IOException e) {
+            Diag.log("[Session] VM " + vm.name() + ": not hearing its events (" + e.getMessage()
+                    + "); a dropped screen will be read as a restart");
+            return null;
+        }
     }
 
     @Override
@@ -71,7 +92,21 @@ final class HypervisorVm implements VmMachine {
         return VmSetup.guestHas(vm, credentials, launcher);
     }
 
-    private record Screen(VmSetup.Running running, boolean booted) implements Connection {
+    /** @param events {@code null} when not heard ({@link #listen}) */
+    private record Screen(VmSetup.Running running, boolean booted, QmpEvents events) implements Connection {
+
+        /**
+         * Without events, or once this connection was closed (a reconnect that failed): a VM still running dropped
+         * only its screen. A stopped QEMU is read as a restart, as it was before VMs had events; a stopped VMware VM
+         * restarts inside Workstation, so it was shut down.
+         */
+        @Override
+        public Optional<QmpEvents.Reason> ended(Duration wait) throws InterruptedException {
+            if (events != null && !events.closedHere()) return events.awaitEnd(wait);
+            VmRecord vm = running.vm();
+            if (VmInventory.running(vm)) return Optional.empty();
+            return Optional.of(vm.hypervisor() == Hypervisor.QEMU ? QmpEvents.Reason.GUEST_RESET : QmpEvents.Reason.UNKNOWN);
+        }
 
         @Override
         public NativeController controller() {
@@ -96,6 +131,7 @@ final class HypervisorVm implements VmMachine {
         @Override
         public void close() {
             running.close();
+            if (events != null) events.close();
         }
     }
 }
