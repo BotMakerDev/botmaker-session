@@ -24,10 +24,11 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * A game VM as a {@link DesktopSession}: the guest's screen, over VNC, is the session's one window. The bot stays
- * on the host; its clicks and keys reach the guest through the hypervisor's virtual mouse and keyboard, so the
- * guest sees hardware and the user's own cursor stays free. {@link #launch} starts the game on the guest's
- * desktop ({@link GuestLaunch}).
+ * A game VM as a {@link DesktopSession}: the guest's screen, over VNC, is the session's window, and
+ * {@link #controller()} lists the guest's own windows on it (the guest's window list, started at each connection).
+ * The bot stays on the host; its clicks and keys reach the guest through the hypervisor's virtual mouse and
+ * keyboard, so the guest sees hardware and the user's own cursor stays free. {@link #launch} starts the game on
+ * the guest's desktop ({@link GuestLaunch}).
  *
  * <p><b>It keeps the VM going.</b> QEMU runs with {@code -no-reboot}, as a restart inside it hangs under the
  * Windows Hypervisor Platform (doc 44 §4b.2.1), so when Windows restarts the guest (an update) QEMU ends and the
@@ -116,6 +117,12 @@ public final class VmSession implements DesktopSession {
                 Thread.sleep(timing.watch().toMillis());
             }
             if (connection.booted()) Thread.sleep(timing.settle().toMillis());
+            try {
+                machine.listWindows();
+            } catch (IOException | RuntimeException e) {
+                // The screen works without it; window("…") then finds only the whole screen.
+                Diag.log("[Session] VM " + machine.name() + ": its windows won't be listed: " + e.getMessage());
+            }
             return connection;
         } catch (IOException e) {
             closeQuietly(connection);

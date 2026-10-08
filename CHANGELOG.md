@@ -28,6 +28,10 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 - `launch.LaunchIsolation` and `display.GamescopeHost` moved in from botmaker-shared.
 
 ### Added
+- **A game VM's session lists the guest's windows.** Once the guest has signed in, and after each restart, the
+  session starts the guest's window list (`VmMachine.listWindows`). Its `controller()` then returns the guest's
+  windows from `getAllWindows`, so a bot finds and captures a window inside the VM. A list that can't be
+  started is logged, and the whole screen stays the one window.
 - **A game VM as a session: `Sessions.startVm(VmOptions)`.** On Windows, the game runs in a VM that Studio
   set up, and the bot drives the VM's screen over VNC: its clicks and keys reach the guest as hardware, and
   the user's own cursor stays free. The session starts the VM without a window if it isn't running and waits

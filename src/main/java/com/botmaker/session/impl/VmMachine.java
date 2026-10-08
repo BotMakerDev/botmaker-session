@@ -31,6 +31,12 @@ interface VmMachine {
     /** Whether {@code launcher} is installed in the guest. */
     boolean has(GuestLauncher launcher) throws IOException, InterruptedException;
 
+    /**
+     * Starts the guest's window list, which the screen's {@link NativeController#getAllWindows()} reads; once the
+     * guest has signed in, and again after each start, as a guest restart ends it.
+     */
+    void listWindows() throws IOException, InterruptedException;
+
     /** One connection to the VM's screen. Closing it leaves the VM running. */
     interface Connection extends AutoCloseable {
 

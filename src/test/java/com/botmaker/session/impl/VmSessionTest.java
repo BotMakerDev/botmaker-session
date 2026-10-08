@@ -39,6 +39,7 @@ class VmSessionTest {
         vm.readyAfter = 3;
         try (VmSession session = VmSession.start(vm, OPTIONS, FAST)) {
             assertEquals(3, vm.readyAsked, "it waited for the guest");
+            assertEquals(1, vm.windowListsStarted, "the guest lists its windows once it has signed in");
             assertTrue(session.has(Capability.BACKGROUND_CLICK));
             assertEquals(new Rectangle(0, 0, 800, 600), session.screen());
             assertEquals("VM game", session.displayName());
@@ -85,6 +86,7 @@ class VmSessionTest {
             assertEquals(List.of("start \"\" \"C:\\Games\\g.exe\"", "start \"\" \"C:\\Games\\g.exe\""), vm.commands,
                     "the restart closed the game: it is started again");
             assertSame(input, session.controller());
+            assertEquals(2, vm.windowListsStarted, "the restart ended the guest's window list");
             input.mouseMove(5, 6);
             assertEquals(List.of("move 5,6"), now.input.events, "the bot's controller follows the new connection");
             assertNotSame(vm.connections.get(0).frame, session.captureScreen());
@@ -170,6 +172,7 @@ class VmSessionTest {
         /** Whether the next start boots the VM, rather than finding it running. */
         volatile boolean bootNext = true;
         volatile Set<GuestLauncher> launchers = Set.of(GuestLauncher.STEAM);
+        volatile int windowListsStarted;
 
         @Override
         public String name() {
@@ -198,6 +201,11 @@ class VmSessionTest {
         @Override
         public boolean has(GuestLauncher launcher) {
             return launchers.contains(launcher);
+        }
+
+        @Override
+        public void listWindows() {
+            windowListsStarted++;
         }
     }
 

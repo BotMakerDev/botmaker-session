@@ -4,6 +4,7 @@ import com.botmaker.shared.Diag;
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
 import com.botmaker.shared.vm.GuestLauncher;
+import com.botmaker.shared.vm.GuestWindows;
 import com.botmaker.shared.vm.Hypervisor;
 import com.botmaker.shared.vm.QmpEvents;
 import com.botmaker.shared.vm.VmCredentials;
@@ -92,6 +93,11 @@ final class HypervisorVm implements VmMachine {
         return VmSetup.guestHas(vm, credentials, launcher);
     }
 
+    @Override
+    public void listWindows() throws IOException, InterruptedException {
+        GuestWindows.start(vm, credentials);
+    }
+
     /** @param events {@code null} when not heard ({@link #listen}) */
     private record Screen(VmSetup.Running running, boolean booted, QmpEvents events) implements Connection {
 
@@ -113,6 +119,7 @@ final class HypervisorVm implements VmMachine {
             return running.screen();
         }
 
+        /** The whole screen: the guest's own windows are what {@link #controller()} lists. */
         @Override
         public GenericWindow window() {
             return running.screen().screen();
