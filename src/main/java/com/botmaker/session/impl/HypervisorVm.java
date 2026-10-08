@@ -5,10 +5,12 @@ import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.NativeController;
 import com.botmaker.shared.launch.LaunchSpec;
 import com.botmaker.shared.vm.GuestGame;
+import com.botmaker.shared.vm.GuestLaunch;
 import com.botmaker.shared.vm.GuestLauncher;
 import com.botmaker.shared.vm.GuestOs;
 import com.botmaker.shared.vm.GuestWindows;
 import com.botmaker.shared.vm.Hypervisor;
+import com.botmaker.shared.vm.LinuxDisplay;
 import com.botmaker.shared.vm.QmpEvents;
 import com.botmaker.shared.vm.VmCredentials;
 import com.botmaker.shared.vm.VmInventory;
@@ -29,6 +31,8 @@ final class HypervisorVm implements VmMachine {
     private final VmCredentials credentials;
     /** The record as the last start left it: a QEMU start can move its ports. */
     private volatile VmRecord vm;
+    /** A Linux guest's display for the bot, as the last {@link #signedIn} opened it. */
+    private volatile LinuxDisplay display;
 
     private HypervisorVm(VmRecord vm, VmCredentials credentials) {
         this.vm = vm;
@@ -46,10 +50,6 @@ final class HypervisorVm implements VmMachine {
         if (vm.stage() != VmRecord.Stage.READY) {
             throw new IOException("The game VM \"" + name + "\" isn't set up yet (" + vm.stage().displayName()
                     + "). Finish its setup in ⚙ Bot Settings.");
-        }
-        if (vm.guestOs() != GuestOs.WINDOWS) {
-            throw new IOException("A bot can't run in the " + vm.guestOs().displayName() + " game VM \"" + name
-                    + "\" yet: pick a Windows one in ⚙ Bot Settings.");
         }
         VmCredentials credentials = VmCredentials.load(vm.folder())
                 .orElseThrow(() -> new IOException("The game VM \"" + name + "\" has lost its passwords."));
@@ -91,8 +91,15 @@ final class HypervisorVm implements VmMachine {
     }
 
     @Override
-    public void run(String command) throws IOException, InterruptedException {
-        VmSetup.runOnDesktop(vm, credentials, command);
+    public void launch(LaunchSpec spec) throws IOException, InterruptedException {
+        if (vm.guestOs() == GuestOs.LINUX) {
+            LinuxDisplay on = display;
+            if (on == null) throw new IOException("The game VM " + vm.name() + " has no screen open for the bot.");
+            on.launch(spec);
+            return;
+        }
+        VmSetup.runOnDesktop(vm, credentials, GuestLaunch.command(spec).orElseThrow(() ->
+                new IllegalArgumentException("A Windows game VM can't start " + spec.describe() + ".")));
     }
 
     @Override
@@ -101,13 +108,84 @@ final class HypervisorVm implements VmMachine {
     }
 
     @Override
-    public void listWindows() throws IOException, InterruptedException {
-        GuestWindows.start(vm, credentials);
+    public Connection signedIn(Connection started) throws IOException, InterruptedException {
+        if (vm.guestOs() == GuestOs.LINUX) {
+            // Never the last display's: once closed, its number may be another bot's.
+            display = null;
+            LinuxDisplay opened = LinuxDisplay.open(vm, "VM " + vm.name());
+            display = opened;
+            Diag.log("[Session] VM " + vm.name() + ": the bot's screen is display :" + opened.number());
+            return new OnDisplay(started, opened, () -> {
+                if (display == opened) display = null;
+            });
+        }
+        try {
+            GuestWindows.start(vm, credentials);
+        } catch (IOException | RuntimeException e) {
+            // The screen works without it; window("…") then finds only the whole screen.
+            Diag.log("[Session] VM " + vm.name() + ": its windows won't be listed: " + e.getMessage());
+        }
+        return started;
     }
 
     @Override
     public GuestGame.Found game(LaunchSpec spec, boolean stop) throws IOException, InterruptedException {
+        if (vm.guestOs() == GuestOs.LINUX) {
+            LinuxDisplay on = display;
+            return on == null ? GuestGame.Found.UNKNOWN : on.game(stop);
+        }
         return VmSetup.game(vm, credentials, spec, stop);
+    }
+
+    /**
+     * A Linux guest's display of the bot's own, over the VM's start: the VM's events still say why it ended, and
+     * closing it ends the display and its game.
+     */
+    private record OnDisplay(Connection started, LinuxDisplay display, Runnable forget) implements Connection {
+
+        @Override
+        public NativeController controller() {
+            return display.screen();
+        }
+
+        @Override
+        public GenericWindow window() {
+            return display.screen().screen();
+        }
+
+        @Override
+        public BufferedImage capture() {
+            return display.screen().captureScreen();
+        }
+
+        @Override
+        public boolean alive() {
+            return display.alive();
+        }
+
+        @Override
+        public boolean booted() {
+            return started.booted();
+        }
+
+        /** A display just opened: no game of the bot's runs there. */
+        @Override
+        public boolean runsNothing() {
+            return true;
+        }
+
+        /** The VM's end, as the start hears it; empty when only the display ended. */
+        @Override
+        public Optional<QmpEvents.Reason> ended(Duration wait) throws InterruptedException {
+            return started.ended(wait);
+        }
+
+        @Override
+        public void close() {
+            forget.run();
+            display.close();
+            started.close();
+        }
     }
 
     /** @param events {@code null} when not heard ({@link #listen}) */

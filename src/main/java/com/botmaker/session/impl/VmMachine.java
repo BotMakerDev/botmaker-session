@@ -27,17 +27,26 @@ interface VmMachine {
     /** Whether the guest has signed in and its tools answer. */
     boolean guestReady() throws IOException, InterruptedException;
 
-    /** Runs a Windows command line on the guest's desktop, without waiting for it. */
-    void run(String command) throws IOException, InterruptedException;
+    /**
+     * Starts {@code spec} in the guest, without waiting for it: on a Windows guest's desktop, or on the Linux
+     * display {@link #signedIn} opened.
+     *
+     * @throws IllegalArgumentException for a kind the guest can't start
+     */
+    void launch(LaunchSpec spec) throws IOException, InterruptedException;
 
     /** Whether {@code launcher} is installed in the guest. */
     boolean has(GuestLauncher launcher) throws IOException, InterruptedException;
 
     /**
-     * Starts the guest's window list, which the screen's {@link NativeController#getAllWindows()} reads; once the
-     * guest has signed in, and again after each start, as a guest restart ends it.
+     * Once the guest has signed in, after each {@link #start}: the connection a bot uses. A Windows guest starts
+     * its window list, which the screen's {@link NativeController#getAllWindows()} reads (a guest restart ends
+     * it), and the bot uses {@code started}, the guest's own screen; a list that can't be started is logged. A
+     * Linux guest opens a display of the bot's own, and the bot uses that; {@code started} closes with it.
+     *
+     * @throws IOException when the Linux guest couldn't open a display
      */
-    void listWindows() throws IOException, InterruptedException;
+    Connection signedIn(Connection started) throws IOException, InterruptedException;
 
     /** {@code spec}'s processes in the guest, ended first with {@code stop}. */
     GuestGame.Found game(LaunchSpec spec, boolean stop) throws IOException, InterruptedException;
@@ -62,6 +71,14 @@ interface VmMachine {
 
         /** Whether this start booted the VM, rather than connecting to one already running. */
         boolean booted();
+
+        /**
+         * Whether nothing the bot started can be running on this screen: a VM this start booted, or a Linux display
+         * just opened. A game is then started again rather than looked for.
+         */
+        default boolean runsNothing() {
+            return booted();
+        }
 
         /**
          * After the screen dropped: waits up to {@code wait} for the VM to end and says why it did; empty when it

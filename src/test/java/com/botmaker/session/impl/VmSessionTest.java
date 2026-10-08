@@ -9,6 +9,7 @@ import com.botmaker.shared.capture.NativeController;
 import com.botmaker.shared.launch.LaunchSpec;
 import com.botmaker.shared.launch.RunState;
 import com.botmaker.shared.vm.GuestGame;
+import com.botmaker.shared.vm.GuestLaunch;
 import com.botmaker.shared.vm.GuestLauncher;
 import com.botmaker.shared.vm.QmpEvents;
 import org.junit.jupiter.api.Test;
@@ -92,6 +93,26 @@ class VmSessionTest {
             vm.processes = List.of();
             vm.connections.get(0).alive = false; // Windows restarted the guest
             await(() -> vm.commands.size() == 1); // the game is started again after the restart
+        }
+    }
+
+    @Test
+    void onALinuxDisplayOfItsOwnTheGameStartsAndStartsAgainWhenTheDisplayDrops() throws Exception {
+        FakeVm vm = new FakeVm();
+        vm.linux = true;
+        vm.bootNext = false;
+        vm.processes = List.of("game (17)"); // another bot's, on another display
+        LaunchSpec game = LaunchSpec.parse("exe:C:\\Games\\g\\game.exe");
+        try (VmSession session = VmSession.start(vm, OPTIONS, FAST)) {
+            session.launch(game);
+            assertEquals(1, vm.commands.size(), "a new display runs nothing yet");
+
+            FakeConnection first = vm.connections.get(0);
+            first.why = Optional.empty(); // the VM runs on: only the display ended
+            first.alive = false;
+            await(() -> vm.commands.size() == 2);
+            assertEquals(2, vm.connections.size(), "a display of its own again");
+            assertTrue(first.closed);
         }
     }
 
@@ -213,6 +234,8 @@ class VmSessionTest {
         volatile boolean bootNext = true;
         volatile Set<GuestLauncher> launchers = Set.of(GuestLauncher.STEAM);
         volatile int windowListsStarted;
+        /** A Linux guest: each connection is a display of the bot's own, where nothing of its runs yet. */
+        volatile boolean linux;
         /** The game's processes in the guest. */
         volatile List<String> processes = List.of();
         final List<LaunchSpec> stopped = new CopyOnWriteArrayList<>();
@@ -238,8 +261,9 @@ class VmSessionTest {
         }
 
         @Override
-        public void run(String command) {
-            commands.add(command);
+        public void launch(LaunchSpec spec) {
+            commands.add((linux ? GuestLaunch.linuxCommand(spec) : GuestLaunch.command(spec))
+                    .orElseThrow(IllegalArgumentException::new));
         }
 
         @Override
@@ -248,8 +272,10 @@ class VmSessionTest {
         }
 
         @Override
-        public void listWindows() {
+        public Connection signedIn(Connection started) {
             windowListsStarted++;
+            ((FakeConnection) started).display = linux;
+            return started;
         }
 
         @Override
@@ -270,6 +296,7 @@ class VmSessionTest {
         final boolean booted;
         volatile boolean alive = true;
         volatile boolean closed;
+        volatile boolean display;
         /** Why the VM ended when the screen drops: a Windows restart unless a test says otherwise. */
         volatile Optional<QmpEvents.Reason> why = Optional.of(QmpEvents.Reason.GUEST_RESET);
 
@@ -300,6 +327,11 @@ class VmSessionTest {
         @Override
         public boolean booted() {
             return booted;
+        }
+
+        @Override
+        public boolean runsNothing() {
+            return booted || display;
         }
 
         @Override

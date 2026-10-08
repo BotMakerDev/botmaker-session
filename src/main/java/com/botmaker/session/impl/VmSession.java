@@ -26,12 +26,13 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * A game VM as a {@link DesktopSession}: the guest's screen, over VNC, is the session's window, and
- * {@link #controller()} lists the guest's own windows on it (the guest's window list, started at each connection).
- * The bot stays on the host; its clicks and keys reach the guest through the hypervisor's virtual mouse and
- * keyboard, so the guest sees hardware and the user's own cursor stays free. {@link #launch} starts the game on
- * the guest's desktop ({@link GuestLaunch}); {@link #running} and {@link #stop} find the game's processes there
- * ({@link GuestGame}).
+ * A game VM as a {@link DesktopSession}: a screen in the guest, over VNC, is the session's window, and
+ * {@link #controller()} lists the guest's own windows on it. In a Windows guest that screen is the guest's own,
+ * with its window list started at each connection; in a Linux guest it is a display of this session's own
+ * ({@link com.botmaker.shared.vm.LinuxDisplay}), so several bots share the VM, and closing the session ends it.
+ * The bot stays on the host; its clicks and keys reach the guest over VNC, so the user's own cursor stays free.
+ * {@link #launch} starts the game there ({@link GuestLaunch}); {@link #running} and {@link #stop} find the game's
+ * processes there ({@link GuestGame}, or the display's own).
  *
  * <p><b>It keeps the VM going.</b> QEMU runs with {@code -no-reboot}, as a restart inside it hangs under the
  * Windows Hypervisor Platform (doc 44 §4b.2.1), so when Windows restarts the guest (an update) QEMU ends and the
@@ -42,7 +43,8 @@ import java.util.Set;
  * holding it keeps working. After {@value #MAX_RESTARTS} restarts within {@link #CALM} of each other it gives
  * up and reports {@link SessionHealth#DEAD}.
  *
- * <p>{@link #close()} disconnects and leaves the VM running, for the next run.
+ * <p>{@link #close()} disconnects and leaves the VM running, for the next run; a Linux display ends, with its
+ * game.
  */
 public final class VmSession implements DesktopSession {
 
@@ -122,12 +124,7 @@ public final class VmSession implements DesktopSession {
                 Thread.sleep(timing.watch().toMillis());
             }
             if (connection.booted()) Thread.sleep(timing.settle().toMillis());
-            try {
-                machine.listWindows();
-            } catch (IOException | RuntimeException e) {
-                // The screen works without it; window("…") then finds only the whole screen.
-                Diag.log("[Session] VM " + machine.name() + ": its windows won't be listed: " + e.getMessage());
-            }
+            connection = machine.signedIn(connection);
             return connection;
         } catch (IOException e) {
             closeQuietly(connection);
@@ -203,7 +200,7 @@ public final class VmSession implements DesktopSession {
         }
         connectedAt = System.nanoTime();
         LaunchSpec again = launched;
-        if (next.booted() && again != null) {
+        if (next.runsNothing() && again != null) {
             try {
                 start(again, false);
             } catch (RuntimeException e) {
@@ -247,17 +244,18 @@ public final class VmSession implements DesktopSession {
     }
 
     /**
-     * Starts {@code spec} on the guest's desktop, where the game is the guest's own: a path names a file in the
-     * guest, and Steam or Epic is the launcher installed there. A game already running there (the last run's) is
-     * left as it is, as a second copy of a program would run beside it; before the first launch into a VM this
-     * session booted, nothing can be, and the guest isn't asked.
+     * Starts {@code spec} in the guest, where the game is the guest's own: a path names a file in the guest, and
+     * Steam or Epic is the launcher installed there. On a Windows guest's desktop, or on a Linux guest's display
+     * of this session's own. A game already running there (the last run's) is left as it is, as a second copy of a
+     * program would run beside it; before the first launch on a screen that {@link VmMachine.Connection#runsNothing},
+     * the guest isn't asked.
      *
-     * @throws IllegalArgumentException for a kind a Windows guest can't start
+     * @throws IllegalArgumentException for a kind the guest can't start
      * @throws IllegalStateException    when the guest couldn't be reached
      */
     @Override
     public void launch(LaunchSpec spec) {
-        boolean fresh = screen.booted() && launched == null;
+        boolean fresh = screen.runsNothing() && launched == null;
         if (!fresh && running(spec) == RunState.RUNNING) {
             launched = spec;
             attached = true;
@@ -269,11 +267,10 @@ public final class VmSession implements DesktopSession {
 
     /** {@link #launch}; {@code checkLauncher} off for a relaunch, whose launcher passed when it first launched. */
     private void start(LaunchSpec spec, boolean checkLauncher) {
-        String command = GuestLaunch.command(spec).orElseThrow(() -> new IllegalArgumentException(
-                "A game VM can't start " + spec.describe() + ": it runs a Windows game by path, command, Steam or Epic."));
+        // The machine refuses, per guest, a kind it can't start (IllegalArgumentException).
         try {
             if (checkLauncher) requireLauncher(GuestLauncher.of(spec));
-            machine.run(command);
+            machine.launch(spec);
         } catch (IOException e) {
             throw new IllegalStateException("The game VM " + machine.name() + " couldn't start "
                     + spec.describe() + ": " + e.getMessage(), e);

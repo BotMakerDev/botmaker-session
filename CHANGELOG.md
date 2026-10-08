@@ -28,8 +28,14 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 - `launch.LaunchIsolation` and `display.GamescopeHost` moved in from botmaker-shared.
 
 ### Added
-- **A Linux game VM is refused by name.** A bot can't run in one until its displays exist; the session says so
-  and points to a Windows VM.
+- **A bot runs in a Linux game VM on a display of its own.** `Sessions.startVm` on a Linux VM opens a
+  `LinuxDisplay` once the guest is up; the session's screen, windows, launch, running and stop are that
+  display's. Several bots then share the VM, and closing a session ends its display and game.
+  - `VmMachine.signedIn(started)` replaces `listWindows()`: a Windows guest starts its window list and keeps its
+    own screen; a Linux guest opens the display.
+  - `VmMachine.launch(spec)` replaces `run(command)`.
+  - `Connection.runsNothing()`: a new display, like a VM just booted, runs no game yet. When a display drops
+    while the VM runs, the session opens another and starts its game again.
 - **`DesktopSession.running(spec)` and `stop(spec)`**: whether the game runs in the session, and ending it, where
   only the session can tell. The defaults are `RunState.UNKNOWN` and `false`, so the caller asks this computer.
   A game VM's session asks its guest (`VmMachine.game`). A VM that was shut down runs nothing, and a guest that
