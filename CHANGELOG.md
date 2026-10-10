@@ -9,6 +9,13 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
+## [Unreleased]
+
+### Changed
+
+- JitPack builds with a Maven 3.9.9 the build downloads itself as well as its own JDK: a broken builder's
+  Maven could not start.
+
 ## [0.2.1] — 2026-10-10
 
 No source changes since v0.2.0, which never built on JitPack: its JDK download step failed, and a tag that

@@ -1,17 +1,20 @@
 jdk:
   - openjdk25
 before_install:
-  # JitPack's own JDK step (SDKMan's java 25.0.1.0+8-open) fails its download intermittently, and then the
-  # build runs with no JAVA_HOME: shared v0.2.0 and v0.2.1 were both lost that way on 2026-10-10, and a tag
-  # that built Error stays broken. So the build fetches Temurin 25 itself, with retries, and never relies on
-  # the jdk step above.
-  # The retry is a shell loop over plain curl flags: one of JitPack's builder images has a curl too old for
-  # --retry-all-errors, and v0.2.0 died on that.
+  # The build brings its own JDK and its own Maven, and uses nothing of the builder's but curl and tar. Some of
+  # JitPack's builders fail SDKMan's java 25.0.1.0+8-open download (no JAVA_HOME), and the same builders ship
+  # a Maven whose launcher is missing (`Could not find or load main class
+  # org.codehaus.plexus.classworlds.launcher.Launcher`): shared v0.2.0 and v0.2.1, then basics v0.3.0, were
+  # lost that way on 2026-10-10, and a tag that built Error stays broken.
+  # The retries are a shell loop over plain curl flags: one builder's curl is too old for --retry-all-errors,
+  # and this module's v0.2.0 died on that.
   - for i in 1 2 3 4 5; do curl -fsSL -o "$HOME/temurin25.tar.gz" https://api.adoptium.net/v3/binary/latest/25/ga/linux/x64/jdk/hotspot/normal/eclipse && break; sleep 10; done
   - mkdir -p "$HOME/temurin25" && tar -xzf "$HOME/temurin25.tar.gz" -C "$HOME/temurin25" --strip-components=1
+  - for i in 1 2 3 4 5; do curl -fsSL -o "$HOME/maven.tar.gz" https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.9/apache-maven-3.9.9-bin.tar.gz && break; sleep 10; done
+  - mkdir -p "$HOME/maven" && tar -xzf "$HOME/maven.tar.gz" -C "$HOME/maven" --strip-components=1
 install:
   # A tag's pom names its upstreams' released versions, written by the umbrella release in the release
   # commit (docs/refactor/43-real-versions.md), so the build needs nothing beside the checkout.
   # flatten-maven-plugin writes them literally into the published pom. A tag cut by hand from main names
   # -SNAPSHOT upstreams, which JitPack cannot resolve: the build fails rather than publishing.
-  - JAVA_HOME="$HOME/temurin25" PATH="$HOME/temurin25/bin:$PATH" mvn install -DskipTests -Dmaven.javadoc.skip=true -B
+  - JAVA_HOME="$HOME/temurin25" PATH="$HOME/temurin25/bin:$PATH" "$HOME/maven/bin/mvn" install -DskipTests -Dmaven.javadoc.skip=true -B
