@@ -9,7 +9,7 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
-## [Unreleased]
+## [0.2.0] — 2026-10-10
 
 ### Changed — breaking
 - **One door to a session: `Sessions`.** `startPrivate(SessionOptions)` returns a `PrivateSession` (a
