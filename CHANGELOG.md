@@ -9,6 +9,15 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
+## [Unreleased]
+
+No source changes since v0.2.0, which never built on JitPack: its JDK download step failed, and a tag that
+built `Error` stays broken. This is v0.2.0 as it was meant to resolve.
+
+### Changed
+
+- JitPack builds with a Temurin 25 the build downloads itself, retried in a shell loop any builder's curl runs.
+
 ## [0.2.0] — 2026-10-10
 
 ### Changed — breaking
