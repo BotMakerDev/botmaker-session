@@ -1,8 +1,15 @@
 jdk:
   - openjdk25
+before_install:
+  # JitPack's own JDK step (SDKMan's java 25.0.1.0+8-open) fails its download intermittently, and then the
+  # build runs with no JAVA_HOME: shared v0.2.0 and v0.2.1 were both lost that way on 2026-10-10, and a tag
+  # that built Error stays broken. So the build fetches Temurin 25 itself, with retries, and never relies on
+  # the jdk step above.
+  - curl -fsSL --retry 5 --retry-all-errors -o "$HOME/temurin25.tar.gz" https://api.adoptium.net/v3/binary/latest/25/ga/linux/x64/jdk/hotspot/normal/eclipse
+  - mkdir -p "$HOME/temurin25" && tar -xzf "$HOME/temurin25.tar.gz" -C "$HOME/temurin25" --strip-components=1
 install:
   # A tag's pom names its upstreams' released versions, written by the umbrella release in the release
   # commit (docs/refactor/43-real-versions.md), so the build needs nothing beside the checkout.
   # flatten-maven-plugin writes them literally into the published pom. A tag cut by hand from main names
   # -SNAPSHOT upstreams, which JitPack cannot resolve: the build fails rather than publishing.
-  - mvn install -DskipTests -Dmaven.javadoc.skip=true -B
+  - JAVA_HOME="$HOME/temurin25" PATH="$HOME/temurin25/bin:$PATH" mvn install -DskipTests -Dmaven.javadoc.skip=true -B
