@@ -14,7 +14,7 @@
     -->
     <groupId>com.github.BotMakerDev</groupId>
     <artifactId>botmaker-session</artifactId>
-    <version>0.2.2</version>
+    <version>0.2.3-SNAPSHOT</version>
 
     <!--
       Private display sessions: a bot drives a nested :N X server (Xephyr or gamescope) that owns its own
@@ -32,7 +32,7 @@
           version was -D-injected, the published pom said botmaker-shared:${botmaker.shared.version} with the
           property still at 0.0.0-SNAPSHOT and nothing downstream could resolve it. See the plugin comment.
         -->
-        <botmaker.shared.version>v0.2.3</botmaker.shared.version>
+        <botmaker.shared.version>0.2.4-SNAPSHOT</botmaker.shared.version>
     </properties>
 
     <repositories>
