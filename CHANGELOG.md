@@ -9,7 +9,7 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
-## [Unreleased]
+## [0.2.1] — 2026-10-10
 
 No source changes since v0.2.0, which never built on JitPack: its JDK download step failed, and a tag that
 built `Error` stays broken. This is v0.2.0 as it was meant to resolve.
