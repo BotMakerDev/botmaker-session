@@ -9,6 +9,15 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
+## [Unreleased]
+
+No source changes since v0.2.2; re-released for updated upstream pins.
+
+### Changed
+
+- JitPack builds with a Maven 3.9.9 the build downloads itself as well as its own JDK: a broken builder's
+  Maven could not start.
+
 ## [0.2.2] — 2026-10-10
 
 ### Changed
