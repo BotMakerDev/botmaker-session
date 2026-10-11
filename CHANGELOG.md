@@ -11,11 +11,11 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ## [Unreleased]
 
-No source changes since v0.2.2; re-released for updated upstream pins.
-
 ### Added
 
 - A manual `macos` CI job (Actions tab) runs the suite on Apple Silicon, the first step of the macOS port.
+- A game VM's session runs a macOS guest (shared's Tart, on a Mac): a launch goes through
+  `GuestLaunch.macCommand`, and no Windows window list is started, so the bot's window is the whole screen.
 
 ### Changed
 

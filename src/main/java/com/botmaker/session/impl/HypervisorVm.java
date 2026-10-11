@@ -23,7 +23,7 @@ import java.time.Duration;
 import java.util.Optional;
 
 /**
- * A game VM that Studio set up, driven through shared's {@code VmSetup}: VMware or QEMU, by its record. Its
+ * A game VM that Studio set up, driven through shared's {@code VmSetup}: VMware, QEMU or Tart, by its record. Its
  * credentials stay in this object; nothing here prints them.
  */
 final class HypervisorVm implements VmMachine {
@@ -98,6 +98,11 @@ final class HypervisorVm implements VmMachine {
             on.launch(spec);
             return;
         }
+        if (vm.guestOs() == GuestOs.MACOS) {
+            VmSetup.runOnDesktop(vm, credentials, GuestLaunch.macCommand(spec).orElseThrow(() ->
+                    new IllegalArgumentException("A macOS game VM can't start " + spec.describe() + ".")));
+            return;
+        }
         VmSetup.runOnDesktop(vm, credentials, GuestLaunch.command(spec).orElseThrow(() ->
                 new IllegalArgumentException("A Windows game VM can't start " + spec.describe() + ".")));
     }
@@ -119,6 +124,8 @@ final class HypervisorVm implements VmMachine {
                 if (display == opened) display = null;
             });
         }
+        // A macOS guest's windows aren't listed yet: window("…") finds its whole screen.
+        if (vm.guestOs() == GuestOs.MACOS) return started;
         try {
             GuestWindows.start(vm, credentials);
         } catch (IOException | RuntimeException e) {
