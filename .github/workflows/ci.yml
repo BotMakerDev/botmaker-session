@@ -98,6 +98,42 @@ jobs:
           name: surefire-reports
           path: target/surefire-reports/
 
+  # The suite on Apple Silicon, the one place it runs on macOS: the maintainer has no Mac. Like `live`,
+  # **run it from the Actions tab**. No nested display exists there, so it proves compile and pure logic,
+  # and that the Linux-only backends report themselves unavailable rather than throw.
+  macos:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check out botmaker-shared
+        uses: actions/checkout@v7
+        with:
+          repository: BotMakerDev/botmaker-shared
+          path: .deps/botmaker-shared
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Install botmaker-shared (its main -SNAPSHOT)
+        run: |
+          source .github/mvn-retry.sh
+          mvn_retry mvn -B -f .deps/botmaker-shared/pom.xml install -DskipTests
+
+      - name: Test
+        run: mvn -B test
+
+      - name: Upload surefire reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: surefire-reports-macos
+          path: target/surefire-reports/
+
   # The GitHub Release, published by JReleaser from the tag the umbrella's release.sh pushed.
   #
   # It runs HERE and not from the umbrella working copy for a measured reason, recorded in jreleaser.yml:

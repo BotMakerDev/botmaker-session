@@ -13,6 +13,10 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 No source changes since v0.2.2; re-released for updated upstream pins.
 
+### Added
+
+- A manual `macos` CI job (Actions tab) runs the suite on Apple Silicon, the first step of the macOS port.
+
 ### Changed
 
 - JitPack builds with a Maven 3.9.9 the build downloads itself as well as its own JDK: a broken builder's
