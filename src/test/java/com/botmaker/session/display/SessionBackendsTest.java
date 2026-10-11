@@ -130,7 +130,7 @@ class SessionBackendsTest {
         SessionBackends.DisplaySize authored = SessionBackends.sizeFor(1080, 1920);
         assertEquals(1080, authored.width());
         assertEquals(1920, authored.height());
-        assertEquals(SessionBackends.SizeSource.PROJECT, authored.source());
+        assertEquals(SessionBackends.SizeSource.BOT, authored.source());
 
         // The point of the type: an unauthored project reaches the same shape of answer, and the *source* is
         // what separates them. Studio's background-mode box used to resolve this fallback before handing the
@@ -150,9 +150,9 @@ class SessionBackendsTest {
         // "1080x1920" alone learns nothing about why dragging the window does nothing.
         String authored = SessionBackends.sizeFor(1080, 1920).describe();
         assertTrue(authored.contains("1080") && authored.contains("1920"), authored);
-        assertTrue(authored.contains("reference resolution"), authored);
-        assertTrue(SessionBackends.sizeFor(0, 0).describe().contains("no reference resolution set"));
-        assertTrue(SessionBackends.FIXED_SIZE_NOTE.contains("reference resolution"));
+        assertTrue(authored.contains("the bot's screen size"), authored);
+        assertTrue(SessionBackends.sizeFor(0, 0).describe().contains("no screen size yet"));
+        assertTrue(SessionBackends.FIXED_SIZE_NOTE.contains("Sdk.screen()"));
     }
 
     private static Predicate<String> onPath(String... installed) {

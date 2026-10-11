@@ -45,8 +45,8 @@ public final class SessionBackends {
 
     /** Where a display's size came from — the half of {@link DisplaySize} a user needs and a number can't carry. */
     public enum SizeSource {
-        /** The project's reference resolution: what every template was captured at. */
-        PROJECT,
+        /** The bot's screen size: what its pictures were cut at. */
+        BOT,
         /** Nothing authored one, so {@link #DEFAULT_WIDTH}×{@link #DEFAULT_HEIGHT}. */
         FALLBACK
     }
@@ -56,17 +56,17 @@ public final class SessionBackends {
      *
      * <p>The size itself was never the problem; three call sites already computed the same "project resolution,
      * else the default" and got the same numbers. What they each threw away was the <em>source</em>, and the
-     * source is the whole of the explanation: a display at the project's reference resolution is fixed on
-     * purpose and changing it means changing the project, while a display at the fallback is fixed because
-     * nobody said otherwise. Those need different sentences, and a bare {@code int[2]} can produce neither.
+     * source is the whole of the explanation: a display at the bot's screen size is fixed on purpose and
+     * changing it means changing the bot, while a display at the fallback is fixed because nobody said
+     * otherwise. Those need different sentences, and a bare {@code int[2]} can produce neither.
      */
     public record DisplaySize(int width, int height, SizeSource source) {
 
-        /** e.g. {@code "1080×1920 (the project's reference resolution)"} — for a status line or a log. */
+        /** e.g. {@code "1080×1920 (the bot's screen size)"} — for a status line or a log. */
         public String describe() {
             return width + "×" + height + " (" + switch (source) {
-                case PROJECT -> "the project's reference resolution";
-                case FALLBACK -> "the default — no reference resolution set for this project";
+                case BOT -> "the bot's screen size";
+                case FALLBACK -> "the default — the bot names no screen size yet";
             } + ")";
         }
     }
@@ -81,7 +81,7 @@ public final class SessionBackends {
      */
     public static DisplaySize sizeFor(int w, int h) {
         return w > 0 && h > 0
-                ? new DisplaySize(w, h, SizeSource.PROJECT)
+                ? new DisplaySize(w, h, SizeSource.BOT)
                 : new DisplaySize(DEFAULT_WIDTH, DEFAULT_HEIGHT, SizeSource.FALLBACK);
     }
 
@@ -95,10 +95,10 @@ public final class SessionBackends {
      * Xephyr window shrank the framebuffer with it and a session claiming 1080×1920 handed back 1080×661 frames.
      */
     public static final String FIXED_SIZE_NOTE =
-            "A private display keeps this size for the life of the session — it is what the project's templates "
-            + "were captured at, so it is not the desktop's to negotiate. Resizing the Xephyr window does not "
-            + "change it (the pixels behind the window are all still there). To change it, set the project's "
-            + "reference resolution and start the session again.";
+            "A private display keeps this size for the life of the session — it is what the bot's pictures "
+            + "were cut at, so it is not the desktop's to negotiate. Resizing the Xephyr window does not "
+            + "change it (the pixels behind the window are all still there). To change it, set the bot's "
+            + "screen size (Sdk.screen()) and start the session again.";
 
     /**
      * The backend a target of this {@code spec} wants, irrespective of what's installed:

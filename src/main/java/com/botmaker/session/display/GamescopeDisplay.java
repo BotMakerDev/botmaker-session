@@ -133,8 +133,8 @@ public final class GamescopeDisplay implements SessionDisplay {
      * The default standalone gamescope argv for a {@code width}x{@code height} host (no {@code --} child).
      *
      * <p>{@code -W/-H} are the output (the nested window on the real desktop) and {@code -w/-h} the internal
-     * resolution apps see; both are the project's authored resolution, so what the bot captures is 1:1 with what
-     * its templates were made at — no upscaler in between. {@code --force-windows-fullscreen} makes the game
+     * resolution apps see; both are the bot's screen size, so what the bot captures is 1:1 with what
+     * its pictures were cut at — no upscaler in between. {@code --force-windows-fullscreen} makes the game
      * fill the display rather than open some default-sized window in a corner of it, which is what the capture
      * and the click coordinates assume.
      *

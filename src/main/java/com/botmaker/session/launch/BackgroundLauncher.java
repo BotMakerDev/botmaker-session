@@ -36,7 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class BackgroundLauncher implements AutoCloseable {
 
     /**
-     * Nested display size used when the caller has no reference resolution to pass — single-sourced in
+     * Nested display size used when the bot names no screen size — single-sourced in
      * {@link SessionBackends}, which also owns <em>which</em> of the two a session ended up on.
      */
     public static final int DEFAULT_WIDTH = SessionBackends.DEFAULT_WIDTH;
