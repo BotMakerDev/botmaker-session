@@ -9,6 +9,32 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
+## [Unreleased]
+
+No source changes since v0.2.3; re-released for updated upstream pins.
+
+### Build
+
+- **JitPack builds with `.jitpack/build.sh`**, the umbrella's `tools/jitpack/build.sh`: Maven 3.9.9 and every
+  dependency from Google's mirror of Maven Central first, with backoff and Maven's 429 retry, so Central's
+  `429 Too Many Requests` no longer loses a tag. The statx shim comes with it.
+
+### Changed
+
+- `SessionBackends.SizeSource.PROJECT` is `BOT`: a private display's size is the bot's screen size
+  (`Sdk.screen()`), and the size line and the fixed-size note say so.
+
+### Added
+
+- A manual `macos` CI job (Actions tab) runs the suite on Apple Silicon, the first step of the macOS port.
+- A game VM's session runs a macOS guest (shared's Tart, on a Mac): a launch goes through
+  `GuestLaunch.macCommand`, and no Windows window list is started, so the bot's window is the whole screen.
+
+### Changed
+
+- JitPack builds with a Maven 3.9.9 the build downloads itself as well as its own JDK: a broken builder's
+  Maven could not start.
+
 ## [0.2.3] — 2026-10-12
 
 ### Build
