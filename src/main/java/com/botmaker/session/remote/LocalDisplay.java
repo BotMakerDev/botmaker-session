@@ -391,7 +391,8 @@ public final class LocalDisplay implements DisplayLink {
             return window;
         }
         long id = WindowIds.of(window);
-        return id == 0 ? null : new GenericWindow(new Pointer(id), window.getTitle(), window.getRect());
+        return id == 0 ? null : new GenericWindow(new Pointer(id), window.getTitle(), window.getRect(),
+                window.getPid(), window.getWindowClass());
     }
 
     /** A window as everything above a {@code DisplayLink} wants it: a plain {@code Long} handle. */
@@ -400,7 +401,8 @@ public final class LocalDisplay implements DisplayLink {
             return null;
         }
         long id = WindowIds.of(window);
-        return id == 0 ? null : new GenericWindow(id, window.getTitle(), window.getRect());
+        return id == 0 ? null : new GenericWindow(id, window.getTitle(), window.getRect(), window.getPid(),
+                window.getWindowClass());
     }
 
     private static List<GenericWindow> externalise(List<GenericWindow> windows) {

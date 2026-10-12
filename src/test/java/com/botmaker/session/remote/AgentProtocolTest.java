@@ -89,6 +89,19 @@ class AgentProtocolTest {
         assertEquals(new Rectangle(10, 20, 1080, 1920), back.getRect());
     }
 
+    /** What proves a window is the game's crosses from the display's agent too (2026-10-13). */
+    @Test
+    void aWindowsProcessAndClassRoundTrip() {
+        GenericWindow sent = new GenericWindow(9L, "Firestone", new Rectangle(0, 0, 1280, 720), 4242, "firestone.exe");
+        GenericWindow back = AgentProtocol.decodeWindow(AgentProtocol.encodeWindow(sent));
+        assertEquals(4242, back.getPid());
+        assertEquals("firestone.exe", back.getWindowClass());
+
+        GenericWindow older = AgentProtocol.decodeWindow("9\tFirestone\t0\t0\t1280\t720");
+        assertEquals(GenericWindow.NO_PID, older.getPid(), "a line without them still reads");
+        assertNull(older.getWindowClass());
+    }
+
     @Test
     void aWindowWithNoRectEncodesAsZerosRatherThanFailing() {
         GenericWindow back = AgentProtocol.decodeWindow(

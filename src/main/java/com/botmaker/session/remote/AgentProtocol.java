@@ -132,7 +132,9 @@ final class AgentProtocol {
     /** One window as a payload line: {@code id title x y w h}. */
     static String encodeWindow(GenericWindow window) {
         Rectangle r = window == null || window.getRect() == null ? new Rectangle() : window.getRect();
-        return join(WindowIds.of(window), window == null ? "" : window.getTitle(), r.x, r.y, r.width, r.height);
+        return join(WindowIds.of(window), window == null ? "" : window.getTitle(), r.x, r.y, r.width, r.height,
+                window == null ? GenericWindow.NO_PID : window.getPid(),
+                window == null || window.getWindowClass() == null ? "" : window.getWindowClass());
     }
 
     /** Every window in {@code windows} as newline-separated payload text. */
@@ -158,7 +160,8 @@ final class AgentProtocol {
             return null;
         }
         return new GenericWindow(id, field(f, 1, ""),
-            new Rectangle(asInt(f, 2, 0), asInt(f, 3, 0), asInt(f, 4, 0), asInt(f, 5, 0)));
+            new Rectangle(asInt(f, 2, 0), asInt(f, 3, 0), asInt(f, 4, 0), asInt(f, 5, 0)),
+            asLong(f, 6, GenericWindow.NO_PID), field(f, 7, ""));
     }
 
     /** Parse a whole window-list payload; unparseable lines are skipped rather than failing the call. */

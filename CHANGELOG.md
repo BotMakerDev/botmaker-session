@@ -11,7 +11,10 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ## [Unreleased]
 
-No source changes since v0.2.3; re-released for updated upstream pins.
+### Changed
+
+- **A private display's windows keep their process and class** across the display agent (two fields appended
+  to a window line; an older line still reads), so the game's window can be proved there too.
 
 ### Build
 
