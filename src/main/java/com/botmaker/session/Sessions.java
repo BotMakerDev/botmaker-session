@@ -55,6 +55,15 @@ public final class Sessions {
     }
 
     /**
+     * The live private display {@code display} (its window {@code window}, its owner's backend {@code backend}),
+     * joined as {@link #offered()} joins one, or empty when it no longer accepts a connection. For a holder that
+     * lost its own handle on a display still running: a plugin reloaded in place over the session it launched.
+     */
+    public static Optional<PrivateSession> adopt(String display, String window, SessionBackend backend) {
+        return Optional.ofNullable(AdoptedSession.adopt(display, window, backend));
+    }
+
+    /**
      * The JVM arguments that offer {@code session} to a process about to be spawned — the producing half of
      * {@link #offered()}. Empty for {@code null}, so a caller composes it unconditionally.
      */

@@ -11,6 +11,13 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- **A holder can join a display it lost.** `Sessions.adopt(display, window, backend)` and
+  `BackgroundLauncher.adopt(…)` hold a live private display someone else brought up, as a `PrivateSession` (an
+  `AdoptedSession` now is one). `stop()` lets go of it and leaves the game running. A plugin reloaded in place
+  rejoins the game its old copy launched instead of being refused a second launch.
+
 ### Changed
 
 - **A private display's windows keep their process and class** across the display agent (two fields appended

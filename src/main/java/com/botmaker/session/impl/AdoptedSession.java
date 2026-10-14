@@ -41,7 +41,7 @@ import java.util.Set;
  * else a nested session offers, it offers — the display genuinely is private, so background clicks and isolated
  * focus hold.
  */
-public final class AdoptedSession implements DesktopSession {
+public final class AdoptedSession implements PrivateSession {
 
     /** System property naming a live private display to adopt, e.g. {@code :1}. */
     public static final String DISPLAY_PROPERTY = "botmaker.session.display";
@@ -51,13 +51,15 @@ public final class AdoptedSession implements DesktopSession {
     public static final String BACKEND_PROPERTY = "botmaker.session.owner.backend";
 
     private final String displayName;
+    private final SessionBackend backend;
     /** Everything this session does to the adopted display, held in another process — see {@link DisplayLink}. */
     private final DisplayLink link;
     private final SessionAttachment attachment;
     private volatile boolean closed;
 
-    private AdoptedSession(String displayName, DisplayLink link) {
+    private AdoptedSession(String displayName, SessionBackend backend, DisplayLink link) {
         this.displayName = displayName;
+        this.backend = backend;
         this.link = link;
         this.attachment = new SessionAttachment(link, "adopted " + displayName);
         // Same contract as a nested session: the input backend asks for the driven window on every use, because the
@@ -122,7 +124,7 @@ public final class AdoptedSession implements DesktopSession {
             Diag.log("[Session] can't adopt " + display + ": it doesn't accept a connection (owner gone?)");
             return null;
         }
-        AdoptedSession session = new AdoptedSession(display, link);
+        AdoptedSession session = new AdoptedSession(display, backend, link);
         GenericWindow window = session.windowById(windowId);
         if (window == null) {
             window = session.newestWindow();
@@ -230,9 +232,34 @@ public final class AdoptedSession implements DesktopSession {
         Diag.log("[Session] released the adopted display " + displayName + " (its owner keeps it)");
     }
 
+    /** The owner's backend, as it was handed over. */
+    @Override
+    public SessionBackend backend() {
+        return backend;
+    }
+
     /** The X id of the window this session drives, or {@code 0} — the driven-window origin the input backends read. */
-    private long attachedWindowId() {
+    @Override
+    public long attachedWindowId() {
         return WindowIds.of(attached());
+    }
+
+    /** Always {@code 0}: the display server's window on the desktop is its owner's, and the hand-off does not name it. */
+    @Override
+    public long hostWindowId() {
+        return 0;
+    }
+
+    /** Nothing to reveal: hiding the host window is its owner's doing. */
+    @Override
+    public void revealHostWindow() {
+    }
+
+    @Override
+    public boolean closeIfDead() {
+        if (closed || link.alive()) return false;
+        close();
+        return true;
     }
 
     /** The window {@code id} names (decimal, or {@code 0x…} hex) among the display's top-levels, or {@code null}. */

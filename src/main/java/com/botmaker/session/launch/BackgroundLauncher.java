@@ -5,6 +5,7 @@ import com.botmaker.session.SessionBackend;
 import com.botmaker.session.SessionOptions;
 import com.botmaker.session.Sessions;
 import com.botmaker.session.display.SessionBackends;
+import com.botmaker.session.remote.WindowIds;
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.launch.LaunchSpec;
 
@@ -197,8 +198,18 @@ public final class BackgroundLauncher implements AutoCloseable {
                 return;
             }
             SessionBackends.DisplaySize size = SessionBackends.sizeFor(width, height);
-            activeSize = size;
-            active = session;
+            synchronized (this) {
+                // A display joined meanwhile (adopt) is the one held: this second one goes.
+                if (active != null) {
+                    session.close();
+                    report(report, false, "A background session is already running — stop it first.");
+                    return;
+                }
+                activeSize = size;
+                active = session;
+                joined = false;
+                released = null;
+            }
             watch(session);
             // The size and its source go in the success line because that is where the question gets asked:
             // the user is now looking at a window they cannot resize, and this is the only surface that knows
@@ -250,13 +261,46 @@ public final class BackgroundLauncher implements AutoCloseable {
     }
 
     /**
+     * Holds the live private display {@code display} as this project's session when it holds none, and answers the
+     * session held. A plugin reloaded in place gets a fresh holder while the display its old copy launched keeps
+     * running, and the store's launcher, single-instance, then refuses a second launch: this joins the running one
+     * instead. Joined, not owned: {@link #stop()} lets go of it and leaves the game running, and this holder then
+     * joins that display no more. Only the window {@code window} names is joined — a display number reused by
+     * another server answers too, and its newest window is someone else's. Null when nothing is held and that
+     * window no longer answers.
+     */
+    public synchronized PrivateSession adopt(String display, String window, SessionBackend backend) {
+        PrivateSession held = active;
+        if (held != null) return held;
+        long wanted = WindowIds.parse(window);
+        if (wanted == 0 || display == null || display.strip().equals(released)) return null;
+        PrivateSession adopted = Sessions.adopt(display, window, backend).orElse(null);
+        if (adopted == null) return null;
+        if (adopted.attachedWindowId() != wanted) {
+            adopted.close();
+            return null;
+        }
+        activeSize = null;
+        active = adopted;
+        joined = true;
+        watch(adopted);
+        return adopted;
+    }
+
+    /** Whether the session held was joined ({@link #adopt}) rather than brought up here. */
+    private volatile boolean joined;
+    /** The display {@link #stop()} last let go of without owning it: joining it again would undo the stop. */
+    private volatile String released;
+
+    /**
      * Tear down the live session (reaps its Xephyr/gamescope + WM + game tree). Safe to call when nothing is
      * running; {@link #session()} answers {@code null} from the first line on, so a consumer mid-frame sees
      * the session go away without being told.
      */
-    public void stop() {
+    public synchronized void stop() {
         PrivateSession session = active;
         active = null;
+        if (session != null && joined) released = session.displayName();
         if (session != null) {
             try {
                 session.close();
