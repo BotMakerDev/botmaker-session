@@ -55,6 +55,20 @@ public final class BackgroundLauncher implements AutoCloseable {
     /** One holder per project resources dir, so the Launch buttons and the Remote Pilot share the live session. */
     private static final Map<Path, BackgroundLauncher> INSTANCES = new ConcurrentHashMap<>();
 
+    static {
+        // The host leaving takes its displays with it: the agent that reads one dies with the host, and a gamescope
+        // left behind kept the game and its launcher running where nothing could reach them, and the next launch
+        // refused while that launcher was open (2026-10-16). A plugin reloaded in place is not an exit: its old
+        // copy's display stays, for the new copy to rejoin.
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> INSTANCES.values().forEach(launcher -> {
+            try {
+                launcher.stop();
+            } catch (Throwable ignored) {
+                // best-effort on the way out: a class the teardown needs may be gone with its loader
+            }
+        }), "private-display-stop"));
+    }
+
     /** The holder for {@code resourcesDir}, created on first use and reused thereafter. */
     public static BackgroundLauncher forProject(Path resourcesDir) {
         return INSTANCES.computeIfAbsent(resourcesDir.toAbsolutePath(), key -> new BackgroundLauncher());

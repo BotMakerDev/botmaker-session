@@ -18,6 +18,11 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
   `AdoptedSession` now is one). `stop()` lets go of it and leaves the game running. A plugin reloaded in place
   rejoins the game its old copy launched instead of being refused a second launch.
 
+### Fixed
+
+- **Quitting the app closes its private displays**: a shutdown hook stops every `BackgroundLauncher`, so the game,
+  gamescope and its launcher no longer outlive Studio and refuse the next launch.
+
 ### Changed
 
 - **A private display's windows keep their process and class** across the display agent (two fields appended
