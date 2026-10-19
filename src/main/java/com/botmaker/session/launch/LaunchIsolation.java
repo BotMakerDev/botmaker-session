@@ -96,6 +96,15 @@ public final class LaunchIsolation {
     }
 
     /**
+     * {@link #check(LaunchSpec)} without the running-launcher probe: what this computer's installed programs allow,
+     * whatever is open now. What a picker greys a place by — a launcher open on the desktop is closed when the
+     * launch asks ({@code HostLauncherPrompt}), so it never makes a place unavailable.
+     */
+    public static Verdict setupCheck(LaunchSpec spec) {
+        return check(spec, Executables::exists, open -> false);
+    }
+
+    /**
      * The rungs of {@code spec}'s ladder that can actually be run on this machine, in preference order — what a
      * caller should try, rather than the whole ladder.
      *

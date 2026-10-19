@@ -13,6 +13,8 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ### Fixed
 
+- `LaunchIsolation.setupCheck`: the verdict from what is installed only, without the running-launcher probe, for a
+  picker greying a place.
 - **A menu app in a private display is waited for**: `gtk-launch` hands the app to systemd and exits 0; a clean
   exit now keeps waiting for the window instead of giving up at once.
 - **GTK, Qt, SDL and Electron apps draw on the session's X display** (`NestedSession.PREFER_X11`), not on
