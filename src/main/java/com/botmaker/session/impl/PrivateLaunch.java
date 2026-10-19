@@ -200,7 +200,7 @@ final class PrivateLaunch {
      * Best-effort and quiet when there is nothing to stop.
      */
     private void stopHostEmulator(LaunchSpec spec) {
-        EmulatorInstance instance = EmulatorInstances.byName(spec.emulatorInstance()).orElse(null);
+        EmulatorInstance instance = EmulatorInstances.find(spec.emulatorInstance()).orElse(null);
         if (instance == null || !instance.canStop()) {
             return;
         }

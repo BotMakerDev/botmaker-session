@@ -9,6 +9,12 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
+## [Unreleased]
+
+### Changed
+
+- **A private launch of an emulator app finds a phone by its serial** (`EmulatorInstances.find`), then by name.
+
 ## [0.3.0] — 2026-10-18
 
 ### Added
