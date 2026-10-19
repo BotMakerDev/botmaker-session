@@ -5,7 +5,6 @@ import com.botmaker.shared.launch.HostLauncherProbe;
 import com.botmaker.shared.launch.LaunchCommands;
 import com.botmaker.shared.launch.LaunchKind;
 import com.botmaker.shared.launch.LaunchSpec;
-import com.botmaker.shared.launch.ProcessOrigin;
 import com.botmaker.shared.launch.RunningProbe;
 
 import java.util.List;
@@ -121,7 +120,8 @@ public final class LaunchIsolation {
     /** {@link #runnableLadder(LaunchSpec, int, int)} against an injected probe. */
     static List<List<String>> runnableLadder(LaunchSpec spec, int width, int height, Predicate<String> installed) {
         return LaunchCommands.childLadder(spec, width, height).stream()
-                .filter(rung -> !rung.isEmpty() && installed.test(rung.get(0)))
+                .filter(rung -> LaunchCommands.executable(rung) != null
+                        && installed.test(LaunchCommands.executable(rung)))
                 .toList();
     }
 
@@ -144,11 +144,10 @@ public final class LaunchIsolation {
             // bot then ran on :0. Whether a private bus also hides a genuine host instance from a single-instance
             // check is still unverified; until it is, "close it and retry" beats re-running the launch that
             // produced the coredump.
-            return new Verdict(Blocker.HOST_LAUNCHER_OPEN, List.of(),
-                    HostLauncherProbe.refusalMessage(spec.kind()));
+            return new Verdict(Blocker.HOST_LAUNCHER_OPEN, List.of(), HostLauncherProbe.refusalMessage(spec));
         }
         for (List<String> rung : ladder) {
-            String program = rung.isEmpty() ? null : rung.get(0);
+            String program = LaunchCommands.executable(rung);
             if (program == null || !installed.test(program)) {
                 continue;
             }
@@ -177,7 +176,7 @@ public final class LaunchIsolation {
         }
         if (HostLauncherProbe.isRunning(spec)) {
             // A launcher opened *during* bring-up — the one case the up-front probe genuinely cannot catch.
-            return HostLauncherProbe.refusalMessage(spec.kind());
+            return HostLauncherProbe.refusalMessage(spec);
         }
         if (RunningProbe.commandLineMentions(spec.token())) {
             return "It is running, but outside the private display — check your real desktop. Something in its "
@@ -223,7 +222,7 @@ public final class LaunchIsolation {
     private static String notInstalledReason(LaunchSpec spec, List<List<String>> ladder) {
         String tried = ladder.stream()
                 .filter(rung -> !rung.isEmpty())
-                .map(rung -> rung.get(0))
+                .map(LaunchCommands::executable)
                 .distinct()
                 .reduce((a, b) -> a + ", " + b)
                 .orElse("nothing");

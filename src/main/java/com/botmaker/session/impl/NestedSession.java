@@ -547,9 +547,21 @@ public final class NestedSession implements PrivateSession {
         // session and is the only way a Wayland-only client can run here at all.
         String wayland = display.waylandDisplay();
         env.put(SessionEnv.WAYLAND_DISPLAY, wayland == null ? "" : wayland);
+        env.putAll(PREFER_X11);
         env.putAll(options.extraEnv());
         return env;
     }
+
+    /**
+     * Toolkits that can draw on X or Wayland are told X: a GTK 4 or Qt app given gamescope's Wayland socket drew
+     * there, where the session's X window list and capture can't see it, and its launch read as "no window"
+     * (2026-10-19, live). A Wayland-only client (Waydroid) ignores these and still has the socket.
+     */
+    static final Map<String, String> PREFER_X11 = Map.of(
+            "GDK_BACKEND", "x11",
+            "QT_QPA_PLATFORM", "xcb",
+            "SDL_VIDEODRIVER", "x11",
+            "ELECTRON_OZONE_PLATFORM_HINT", "x11");
 
     /**
      * The window manager to actually run for {@code options}: what the caller asked for when it said anything at

@@ -14,6 +14,7 @@ import com.botmaker.shared.emulator.EmulatorInstance;
 import com.botmaker.shared.emulator.EmulatorInstances;
 import com.botmaker.shared.emulator.EmulatorLauncher;
 import com.botmaker.shared.launch.HostLauncherProbe;
+import com.botmaker.shared.launch.LaunchCommands;
 import com.botmaker.shared.launch.LaunchKind;
 import com.botmaker.shared.launch.LaunchPreparation;
 import com.botmaker.shared.launch.LaunchSpec;
@@ -127,7 +128,7 @@ final class PrivateLaunch {
                 continue;
             }
             process = proc;
-            GenericWindow target = awaitWindow(proc, before, windowTimeoutMs);
+            GenericWindow target = awaitWindow(proc, command, before, windowTimeoutMs);
             if (target != null) {
                 // A store launcher's first window is its own UI, not the game's, and it stays alive behind the
                 // game — so for those kinds the attach is provisional and the newest window keeps winning.
@@ -218,8 +219,9 @@ final class PrivateLaunch {
      * launched process subtree (the robust match — Wine/Proton set it); else a window that appeared since
      * {@code before} (covers apps/WMs that don't set {@code _NET_WM_PID}); else {@code null} on timeout.
      */
-    private GenericWindow awaitWindow(Process proc, Set<Long> before, long timeoutMs) {
+    private GenericWindow awaitWindow(Process proc, List<String> command, Set<Long> before, long timeoutMs) {
         long deadline = System.currentTimeMillis() + timeoutMs;
+        boolean handedOff = false;
         while (System.currentTimeMillis() < deadline) {
             Set<Long> pids = subtreePids(proc);
             GenericWindow newest = null;
@@ -235,13 +237,28 @@ final class PrivateLaunch {
             if (newest != null) {
                 return newest;
             }
-            if (!proc.isAlive() && subtreePids(proc).isEmpty()) {
-                Diag.error("[Session] " + id + ": launched process exited before a window appeared");
-                return null;
+            if (!handedOff && !proc.isAlive() && subtreePids(proc).isEmpty()) {
+                if (!handedOff(command, proc.exitValue())) {
+                    Diag.error("[Session] " + id + ": launched process exited (code " + proc.exitValue()
+                            + ") before a window appeared");
+                    return null;
+                }
+                handedOff = true;
+                Diag.log("[Session] " + id + ": launched process handed off and exited — waiting for the window");
             }
             sleep();
         }
         return null;
+    }
+
+    /**
+     * Whether {@code command}, exited with {@code exitCode} and nothing left under it, handed the app off rather
+     * than failed. {@code gtk-launch} starts the app in a systemd scope of its own and exits 0 at once, so the app
+     * is no longer ours to see: a menu app's window came 3 s after the wait had given up (2026-10-19). Only it: any
+     * other program that exits 0 without a window still fails at once.
+     */
+    static boolean handedOff(List<String> command, int exitCode) {
+        return exitCode == 0 && "gtk-launch".equals(LaunchCommands.executable(command));
     }
 
     /** The pid of {@code proc} plus its live descendants — under systemd the payload descends from the scope. */

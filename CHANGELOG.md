@@ -11,6 +11,14 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A menu app in a private display is waited for**: `gtk-launch` hands the app to systemd and exits 0; a clean
+  exit now keeps waiting for the window instead of giving up at once.
+- **GTK, Qt, SDL and Electron apps draw on the session's X display** (`NestedSession.PREFER_X11`), not on
+  gamescope's Wayland where no window was found; Wayland-only clients keep the socket.
+- **The refusal names the launcher actually open** (`LaunchIsolation` asks `HostLauncherProbe.refusalMessage(spec)`).
+
 ### Changed
 
 - **A copy of the game already on the desktop is stopped by what proves it running** (`Launcher.stopOnHost`): a
