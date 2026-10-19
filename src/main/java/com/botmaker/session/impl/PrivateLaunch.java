@@ -13,7 +13,6 @@ import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.emulator.EmulatorInstance;
 import com.botmaker.shared.emulator.EmulatorInstances;
 import com.botmaker.shared.emulator.EmulatorLauncher;
-import com.botmaker.shared.launch.GameLauncher;
 import com.botmaker.shared.launch.HostLauncherProbe;
 import com.botmaker.shared.launch.LaunchKind;
 import com.botmaker.shared.launch.LaunchPreparation;
@@ -184,11 +183,8 @@ final class PrivateLaunch {
         if (!Launcher.isRunning(spec)) {
             return;
         }
-        String name = spec.fileName();
-        if (name != null && !name.isBlank()) {
-            Diag.log("[Session] " + id + ": stopping host instance of " + spec.spec() + " (" + name + ")");
-            GameLauncher.kill(name);
-        } else {
+        Diag.log("[Session] " + id + ": stopping host instance of " + spec.spec());
+        if (!Launcher.stopOnHost(spec)) {
             Diag.error("[Session] " + id + ": " + spec.spec() + " is running on the host but can't be stopped by name");
         }
     }

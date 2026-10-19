@@ -13,6 +13,9 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ### Changed
 
+- **A copy of the game already on the desktop is stopped by what proves it running** (`Launcher.stopOnHost`): a
+  Steam game's `AppId=…`, a Lutris game's title. It was stopped by its file name, which for a Steam game is its
+  app id and stopped nothing.
 - **A private launch of an emulator app finds a phone by its serial** (`EmulatorInstances.find`), then by name.
 
 ## [0.3.0] — 2026-10-18
