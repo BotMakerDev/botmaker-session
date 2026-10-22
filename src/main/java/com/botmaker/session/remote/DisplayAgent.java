@@ -48,6 +48,8 @@ public final class DisplayAgent {
     private final DisplayLink display;
     private final InputStream in;
     private final OutputStream out;
+    /** The live grabs the caller opened, each with its frame file; closed when serving ends or the JVM exits. */
+    private final AgentGrabs grabs = new AgentGrabs(AgentGrabs.frameDir());
     /** The window the caller declared it is driving; the input backends that need an origin read it. */
     private volatile long drivenWindow;
 
@@ -98,7 +100,10 @@ public final class DisplayAgent {
         int code = 0;
         try (InputStream in = new BufferedInputStream(System.in);
              OutputStream out = new BufferedOutputStream(new java.io.FileOutputStream(java.io.FileDescriptor.out))) {
-            new DisplayAgent(display, in, out).serve();
+            DisplayAgent agent = new DisplayAgent(display, in, out);
+            // The parent stops an agent with SIGTERM: its frame files go with it.
+            Runtime.getRuntime().addShutdownHook(new Thread(agent.grabs::deleteFiles, "agent-grabs"));
+            agent.serve();
         } catch (Exception e) {
             console.println("[Agent] " + displayName + ": " + e);
             code = 3;
@@ -110,19 +115,23 @@ public final class DisplayAgent {
 
     /** Read, serve, respond until {@code bye} or EOF. Package-private for the wire test; see the constructor. */
     void serve() throws IOException {
-        String line;
-        while ((line = readLine(in)) != null) {
-            String[] request = AgentProtocol.split(line);
-            String verb = AgentProtocol.field(request, 0, "");
-            if ("bye".equals(verb)) {
-                return;
+        try {
+            String line;
+            while ((line = readLine(in)) != null) {
+                String[] request = AgentProtocol.split(line);
+                String verb = AgentProtocol.field(request, 0, "");
+                if ("bye".equals(verb)) {
+                    return;
+                }
+                try {
+                    dispatch(verb, request);
+                } catch (Exception e) {
+                    // A verb that failed is not a reason to lose the stream — the caller degrades on ERR.
+                    respond(AgentProtocol.ERR + "\t" + AgentProtocol.escape(String.valueOf(e)), null);
+                }
             }
-            try {
-                dispatch(verb, request);
-            } catch (Exception e) {
-                // A verb that failed is not a reason to lose the stream — the caller degrades on ERR.
-                respond(AgentProtocol.ERR + "\t" + AgentProtocol.escape(String.valueOf(e)), null);
-            }
+        } finally {
+            grabs.close();
         }
     }
 
@@ -138,11 +147,19 @@ public final class DisplayAgent {
             }
 
             // --- capture ---
-            case "capture" -> png(display.captureWindow(window(a, 1)));
-            case "captureRoot" -> png(display.captureScreen());
+            case "capture" -> frame(display.captureWindow(window(a, 1)), AgentProtocol.asBool(a, 2));
+            case "captureRoot" -> frame(display.captureScreen(), AgentProtocol.asBool(a, 1));
             case "preview" -> preview(AgentProtocol.asInt(a, 1, Preview.MAX_EDGE),
                 AgentProtocol.asInt(a, 2, 60));
             case "surface" -> surface();
+
+            // --- live frames, through a file both processes map ---
+            case "grabOpen" -> value(grabs.open(display.grabWindow(window(a, 1))));
+            case "grab" -> {
+                String frame = grabs.grab(AgentProtocol.asLong(a, 1, 0));
+                respond(AgentProtocol.OK + "\t0" + (frame == null ? "" : "\t" + frame), null);
+            }
+            case "grabClose" -> ok(() -> grabs.close(AgentProtocol.asLong(a, 1, 0)));
 
             // --- window management ---
             case "focus" -> ok(() -> display.focusWindow(window(a, 1)));
@@ -263,10 +280,19 @@ public final class DisplayAgent {
             + "\t" + r.x + "\t" + r.y + "\t" + r.width + "\t" + r.height, null);
     }
 
-    /** A frame as PNG — lossless, because these pixels are what the vision stack matches templates against. */
-    private void png(BufferedImage image) throws IOException {
+    /**
+     * A frame, lossless because these pixels are what the vision stack matches templates against: {@code raw}, its
+     * ARGB ints with its width and height ({@link AgentProtocol#rawPixels}), else PNG.
+     */
+    private void frame(BufferedImage image, boolean raw) throws IOException {
         if (image == null) {
             respond(AgentProtocol.OK + "\t0", null);
+            return;
+        }
+        if (raw) {
+            byte[] bytes = AgentProtocol.rawPixels(image);
+            respond(AgentProtocol.OK + "\t" + bytes.length + "\t" + image.getWidth() + "\t" + image.getHeight(),
+                bytes);
             return;
         }
         ByteArrayOutputStream buffer = new ByteArrayOutputStream(1 << 18);

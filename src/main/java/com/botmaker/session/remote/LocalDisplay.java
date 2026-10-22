@@ -5,6 +5,7 @@ import com.botmaker.session.SessionBackend;
 import com.botmaker.session.display.SessionHostWindow;
 
 import com.botmaker.shared.Diag;
+import com.botmaker.shared.capture.FrameGrab;
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.capture.linux.LinuxController;
 import com.botmaker.shared.capture.linux.X11;
@@ -228,6 +229,12 @@ public final class LocalDisplay implements DisplayLink {
     @Override
     public BufferedImage captureWindow(GenericWindow window) {
         return closed ? null : controller.captureWindow(internalise(window));
+    }
+
+    /** The controller's own grab, shared memory on {@code :N} as on the desktop (2026-10-22). */
+    @Override
+    public FrameGrab grabWindow(GenericWindow window) {
+        return closed ? sink -> false : controller.grabWindow(internalise(window));
     }
 
     @Override

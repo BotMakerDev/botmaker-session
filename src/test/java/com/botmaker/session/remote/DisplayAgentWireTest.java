@@ -1,24 +1,28 @@
 package com.botmaker.session.remote;
 
+import com.botmaker.shared.capture.FrameGrab;
 import com.botmaker.shared.capture.GenericWindow;
 
 import org.junit.jupiter.api.Test;
 
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -154,6 +158,41 @@ class DisplayAgentWireTest {
         assertEquals(2, back.size());
         assertEquals("Firestone\tv2", back.get(0).getTitle(), "a tabbed title survives the payload framing");
         assertEquals(new Rectangle(4, 4, 16, 16), back.get(1).getRect());
+    }
+
+    @Test
+    void aRawCaptureCarriesItsPixelsAndSizeAndAPlainOneStaysPng() throws IOException {
+        BufferedImage frame = new BufferedImage(3, 2, BufferedImage.TYPE_INT_ARGB);
+        int[] argb = {0xFF102030, 0xFFFFFFFF, 0xFF000000, 0xFFAB00CD, 0xFF00FF00, 0xFF123456};
+        frame.setRGB(0, 0, 3, 2, argb, 0, 3);
+        answers.put("captureWindow", a -> frame);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        new DisplayAgent(stubDisplay(), new ByteArrayInputStream((AgentProtocol.join("capture", 7, true) + "\n")
+                .getBytes(StandardCharsets.UTF_8)), out).serve();
+        ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+        String[] header = AgentProtocol.split(DisplayAgent.readLine(in));
+        assertEquals(List.of("OK", "24", "3", "2"), List.of(header));
+        BufferedImage back = AgentProtocol.fromRawPixels(DisplayAgent.readFully(in, 24), 3, 2);
+        assertArrayEquals(argb, back.getRGB(0, 0, 3, 2, null, 0, 3), "lossless, pixel for pixel");
+
+        List<String> plain = serve(AgentProtocol.join("capture", 7));
+        assertEquals(2, AgentProtocol.split(plain.get(0)).length, "no flag: PNG, as an older caller reads it");
+    }
+
+    @Test
+    void aLiveGrabAnswersWhereItsFrameIsAndTheEndOfServingDeletesTheFile() throws IOException {
+        BufferedImage frame = new BufferedImage(3, 2, BufferedImage.TYPE_INT_ARGB);
+        answers.put("grabWindow", a -> FrameGrab.of(() -> frame));
+
+        List<String> back = serve(AgentProtocol.join("grabOpen", 7), AgentProtocol.join("grab", 1),
+                AgentProtocol.join("grab", 2));
+        assertEquals("grabWindow(7)", calls.get(0));
+        assertEquals(List.of("OK", "0", "1"), List.of(AgentProtocol.split(back.get(0))));
+        String[] grabbed = AgentProtocol.split(back.get(1));
+        assertEquals(List.of("OK", "0", "1", "3", "2"), List.of(grabbed).subList(0, 5));
+        assertFalse(Files.exists(Path.of(grabbed[5])), "served to the end: no file left in /dev/shm");
+        assertEquals("OK\t0", back.get(2), "a grab never opened answers no frame");
     }
 
     @Test

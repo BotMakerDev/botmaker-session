@@ -3,6 +3,11 @@ package com.botmaker.session.remote;
 import com.botmaker.shared.capture.GenericWindow;
 
 import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -121,6 +126,79 @@ final class AgentProtocol {
     /** Field {@code index} as a boolean — only the literal {@code "true"} is true. */
     static boolean asBool(String[] fields, int index) {
         return "true".equals(field(fields, index, "false"));
+    }
+
+    // --- frames ---
+    //
+    // A capture asked for raw (its last argument "true") travels as its ARGB ints, big-endian, its width and
+    // height the response's fields: lossless like the PNG it replaces, but a 1080p frame cost the agent ~250 ms
+    // to deflate and the caller as much to inflate, the live board's whole frame budget eight times over. An
+    // agent too old to know the argument ignores it and sends PNG, which the caller still reads.
+
+    /** {@code image}'s pixels as ARGB ints, big-endian, row after row. */
+    static byte[] rawPixels(BufferedImage image) {
+        int w = image.getWidth();
+        int h = image.getHeight();
+        int[] pixels = image.getType() == BufferedImage.TYPE_INT_ARGB
+                && image.getRaster().getDataBuffer() instanceof DataBufferInt ints
+                && ints.getNumBanks() == 1 && ints.getOffset() == 0 && image.getRaster().getParent() == null
+                && ints.getData().length == w * h
+            ? ints.getData()
+            : image.getRGB(0, 0, w, h, null, 0, w);
+        ByteBuffer bytes = ByteBuffer.allocate(w * h * Integer.BYTES);
+        bytes.asIntBuffer().put(pixels);
+        return bytes.array();
+    }
+
+    /** The {@code TYPE_INT_ARGB} image {@link #rawPixels} wrote; null when {@code bytes} is not that many pixels. */
+    static BufferedImage fromRawPixels(byte[] bytes, int width, int height) {
+        if (width <= 0 || height <= 0 || bytes.length != (long) width * height * Integer.BYTES) {
+            return null;
+        }
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        ByteBuffer.wrap(bytes).asIntBuffer().get(((DataBufferInt) image.getRaster().getDataBuffer()).getData());
+        return image;
+    }
+
+    // --- frame files ---
+    //
+    // A live grab's frames cross through a file in /dev/shm that both processes map (2026-10-22, as OBS hands a
+    // frame to its encoder): the agent writes the pixels there and answers only the frame's sequence, size and file,
+    // so a 1080p frame costs one copy on each side instead of 8 MB down the pipe. The file holds the sequence (a
+    // long), the width and the height (ints), then the pixels as ARGB ints row after row, all in the machine's own
+    // byte order: both ends run on it. One slot is enough: a grab is read by one thread at a time, so the caller has
+    // copied a frame out before it asks for the next.
+
+    /** Bytes before a frame file's pixels: its sequence, width and height. */
+    static final int FRAME_HEADER = Long.BYTES + 2 * Integer.BYTES;
+
+    /** The bytes a frame file needs for a {@code width × height} frame. */
+    static long frameFileSize(int width, int height) {
+        return FRAME_HEADER + (long) width * height * Integer.BYTES;
+    }
+
+    /** {@code pixels}' first {@code width × height} written into {@code file}, its header last, as frame {@code sequence}. */
+    static void writeFrame(MemorySegment file, long sequence, int[] pixels, int width, int height) {
+        MemorySegment.copy(pixels, 0, file, ValueLayout.JAVA_INT_UNALIGNED, FRAME_HEADER, width * height);
+        file.set(ValueLayout.JAVA_INT_UNALIGNED, Long.BYTES, width);
+        file.set(ValueLayout.JAVA_INT_UNALIGNED, Long.BYTES + Integer.BYTES, height);
+        file.set(ValueLayout.JAVA_LONG_UNALIGNED, 0, sequence);
+    }
+
+    /**
+     * Frame {@code sequence} read out of {@code file} into {@code into}; false when the file holds another frame or
+     * another size, or is too small for the one it says it holds.
+     */
+    static boolean readFrame(MemorySegment file, long sequence, int width, int height, int[] into) {
+        if (width <= 0 || height <= 0 || file.byteSize() < frameFileSize(width, height)
+                || into.length < width * height
+                || file.get(ValueLayout.JAVA_LONG_UNALIGNED, 0) != sequence
+                || file.get(ValueLayout.JAVA_INT_UNALIGNED, Long.BYTES) != width
+                || file.get(ValueLayout.JAVA_INT_UNALIGNED, Long.BYTES + Integer.BYTES) != height) {
+            return false;
+        }
+        MemorySegment.copy(file, ValueLayout.JAVA_INT_UNALIGNED, FRAME_HEADER, into, 0, width * height);
+        return true;
     }
 
     // --- window lists ---

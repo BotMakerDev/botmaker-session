@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import java.awt.Rectangle;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -146,6 +148,24 @@ class AgentProtocolTest {
         // here would lose a response the caller is already blocked on.
         assertEquals("OK\t0", DisplayAgent.readLine(new ByteArrayInputStream("OK\t0".getBytes(StandardCharsets.UTF_8))));
         assertNull(DisplayAgent.readLine(new ByteArrayInputStream(new byte[0])));
+    }
+
+    @Test
+    void aFrameFileGivesBackTheFrameItHoldsAndNoOther() {
+        int[] argb = {0xFF102030, 0xFFFFFFFF, 0xFF000000, 0xFFAB00CD, 0xFF00FF00, 0xFF123456};
+        assertEquals(16 + 24, AgentProtocol.frameFileSize(3, 2));
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment file = arena.allocate(AgentProtocol.frameFileSize(3, 2));
+            AgentProtocol.writeFrame(file, 7, argb, 3, 2);
+            int[] into = new int[6];
+            assertTrue(AgentProtocol.readFrame(file, 7, 3, 2, into));
+            assertArrayEquals(argb, into);
+            assertFalse(AgentProtocol.readFrame(file, 6, 3, 2, into), "another frame than the one answered");
+            assertFalse(AgentProtocol.readFrame(file, 7, 2, 3, into), "another size than the one written");
+            assertFalse(AgentProtocol.readFrame(file.asSlice(0, file.byteSize() - 1), 7, 3, 2, into),
+                    "a file too small for the frame it names");
+            assertFalse(AgentProtocol.readFrame(file, 7, 3, 2, new int[5]), "an array too small for it");
+        }
     }
 
     @Test

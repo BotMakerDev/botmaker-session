@@ -13,6 +13,14 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ### Fixed
 
+- **A private session's live frames cross through shared memory** (`RemoteDisplay.grabWindow`): the display agent
+  grabs the window on `:N` through MIT-SHM, as the desktop does, and writes each frame into a file in `/dev/shm`
+  both processes map; the pipe carries only its sequence and size. 2 ms a frame where the pipe took 19 ms
+  (1219×654 on Xephyr). The file is deleted as soon as Studio maps it, and by the agent on close and at exit. An
+  agent too old for it is read down the pipe.
+- **A capture over the pipe travels as raw pixels**, not PNG: the agent spent ~250 ms deflating a 1080p frame.
+  An older agent still answers PNG, which is still read.
+
 - `LaunchIsolation.setupCheck`: the verdict from what is installed only, without the running-launcher probe, for a
   picker greying a place.
 - **A menu app in a private display is waited for**: `gtk-launch` hands the app to systemd and exits 0; a clean

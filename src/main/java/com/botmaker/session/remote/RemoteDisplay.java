@@ -6,6 +6,8 @@ import com.botmaker.session.PrivateSession;
 import com.botmaker.session.SessionBackend;
 
 import com.botmaker.shared.Diag;
+import com.botmaker.shared.capture.FrameGrab;
+import com.botmaker.shared.capture.FrameSink;
 import com.botmaker.shared.capture.GenericWindow;
 
 import java.awt.Point;
@@ -16,7 +18,13 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
@@ -99,7 +107,7 @@ public final class RemoteDisplay implements DisplayLink {
 
     @Override
     public BufferedImage captureScreen() {
-        return image(call("captureRoot"));
+        return image(call("captureRoot", true));
     }
 
     /**
@@ -221,7 +229,98 @@ public final class RemoteDisplay implements DisplayLink {
     @Override
     public BufferedImage captureWindow(GenericWindow window) {
         long id = WindowIds.of(window);
-        return id == 0 ? null : image(call("capture", id));
+        return id == 0 ? null : image(call("capture", id, true));
+    }
+
+    /**
+     * The window's frames through a file this process and the agent both map, the agent grabbing on {@code :N} as
+     * the desktop does (2026-10-22); each frame by {@link #captureWindow} instead when the agent is too old to know
+     * the verb or the file cannot be mapped.
+     */
+    @Override
+    public FrameGrab grabWindow(GenericWindow window) {
+        FrameGrab slow = FrameGrab.of(() -> captureWindow(window));
+        long id = WindowIds.of(window);
+        Response opened = id == 0 ? null : call("grabOpen", id);
+        long grab = opened == null ? 0 : opened.asLong(1, 0);
+        return grab == 0 ? slow : new SharedGrab(grab, slow);
+    }
+
+    /**
+     * A grab the agent holds open, its frames read out of the file it writes them to. Closed on the thread that grabs,
+     * as the live board does: a close from another thread would unmap the file under a read.
+     */
+    private final class SharedGrab implements FrameGrab {
+
+        private final long id;
+        private final FrameGrab slow;
+        private boolean fallen;
+        private Arena arena;
+        private MemorySegment file;
+        private String path = "";
+
+        SharedGrab(long id, FrameGrab slow) {
+            this.id = id;
+            this.slow = slow;
+        }
+
+        @Override
+        public boolean grab(FrameSink sink) {
+            if (fallen) return slow.grab(sink);
+            Response r = call("grab", id);
+            if (r == null) return fallBack(sink);
+            long sequence = r.asLong(1, 0);
+            if (sequence == 0) return false;
+            int width = r.asInt(2, 0);
+            int height = r.asInt(3, 0);
+            if (width <= 0 || height <= 0) return false;
+            String at = r.field(4);
+            if (!at.equals(path) && !map(at)) return fallBack(sink);
+            return AgentProtocol.readFrame(file, sequence, width, height, sink.pixels(width, height));
+        }
+
+        /** The agent's new file mapped, and deleted: both processes hold the memory, nothing stays in /dev/shm. */
+        private boolean map(String at) {
+            unmap();
+            Path shared = Path.of(at);
+            Arena mapped = Arena.ofShared();
+            try (FileChannel channel = FileChannel.open(shared, StandardOpenOption.READ)) {
+                file = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size(), mapped);
+                arena = mapped;
+                path = at;
+                return true;
+            } catch (IOException | RuntimeException e) {
+                mapped.close();
+                Diag.log("[Session] " + displayName + ": cannot map the agent's frames (" + e
+                    + "), reading them down the pipe");
+                return false;
+            } finally {
+                try {
+                    Files.deleteIfExists(shared);
+                } catch (IOException ignored) {
+                    // The agent deletes it too, at the latest when it exits.
+                }
+            }
+        }
+
+        private boolean fallBack(FrameSink sink) {
+            fallen = true;
+            close();
+            return slow.grab(sink);
+        }
+
+        private void unmap() {
+            if (arena != null) arena.close();
+            arena = null;
+            file = null;
+            path = "";
+        }
+
+        @Override
+        public void close() {
+            unmap();
+            call("grabClose", id);
+        }
     }
 
     @Override
@@ -445,9 +544,14 @@ public final class RemoteDisplay implements DisplayLink {
             + (agent.log() == null ? "" : " (agent output: " + agent.log().getAbsolutePath() + ")"));
     }
 
+    /** A captured frame: raw pixels when the answer gives its width and height, else PNG (an older agent). */
     private static BufferedImage image(Response response) {
         if (response == null || response.payload.length == 0) {
             return null;
+        }
+        int width = response.asInt(1, 0);
+        if (width > 0) {
+            return AgentProtocol.fromRawPixels(response.payload, width, response.asInt(2, 0));
         }
         try {
             return ImageIO.read(new ByteArrayInputStream(response.payload));
@@ -473,6 +577,10 @@ public final class RemoteDisplay implements DisplayLink {
 
         boolean asBool(int index) {
             return AgentProtocol.asBool(fields, index + 1);
+        }
+
+        String field(int index) {
+            return AgentProtocol.field(fields, index + 1, "");
         }
     }
 }
