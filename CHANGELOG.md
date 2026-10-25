@@ -9,6 +9,11 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
+## [Unreleased]
+
+No source changes since v0.5.0; re-released for updated upstream pins (shared v0.5.1, whose Heroic titles decode
+their escapes).
+
 ## [0.5.0] — 2026-10-25
 
 No source changes since v0.4.0; re-released for updated upstream pins.
