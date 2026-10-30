@@ -9,6 +9,8 @@ History before 2026-07-30 (when this stack was `com.botmaker.shared.session`) is
 - **Sessions stopped on request are known to one class loader** (`SessionReaper.STOPPED`, 2026-10-30): a plugin
   reloaded right after *Close it and launch* may give the next session the stopped one's id while systemd still
   stops it. Read the stopping from systemd (the slice's state) instead.
+- **`SessionReaperSweepTest` calls the real `stopSession`** on a fake id (2026-10-30): harmless today, as it stops
+  a slice that does not exist, but it reaches systemd from a unit test.
 
 - **Game VM, what's left** (`../docs/refactor/44-windows-isolation.md` §4b):
   - `VmSessionLiveTest` with VMware (`VmSetupLiveTest` passes there, set up with nobody at the keyboard);
