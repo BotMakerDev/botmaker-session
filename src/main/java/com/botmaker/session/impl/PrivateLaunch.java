@@ -142,6 +142,9 @@ final class PrivateLaunch {
             Diag.error("[Session] " + id + ": `" + String.join(" ", command) + "` mapped no window on "
                 + display.displayName() + " within " + windowTimeoutMs + "ms — trying the next launch form"
                 + outputHint(log));
+            // Gone before the next form runs: it takes the same unit name, and a late window of this one would be
+            // taken for the next one's. The last one stays, for the diagnosis below to find it running.
+            if (command != candidates.getLast()) reaper.stop(SessionUnit.APP, proc);
         }
         // Every form ran but nothing appeared on :N. Rather than guess, ask what the process table says actually
         // happened — and say where the app's own account of it is.

@@ -42,6 +42,27 @@ class SessionReaperSweepTest {
     }
 
     @Test
+    void aSessionWhoseDisplayRunsIsInUseWhoeverHoldsIt() {
+        // A plugin reloaded in place holds its sessions in another copy of this class (2026-10-30, Balatro).
+        List<String> active = List.of("botmaker-sess-s123-1-gamescope.scope", "botmaker-sess-s123-1-app.scope",
+            "botmaker-sess-s123-2-dbus.scope");
+        assertTrue(SessionReaper.displayRuns("s123-1", active));
+        assertTrue(SessionReaper.displayRuns("s123", active), "the parent of a session in use is in use");
+        assertFalse(SessionReaper.displayRuns("s123-2", active), "a dbus left alone is an abandoned shell");
+        assertFalse(SessionReaper.displayRuns("s12", active), "only a whole dash-separated segment counts");
+        assertTrue(SessionReaper.displayRuns("s7-1", List.of("botmaker-sess-s7-1-xephyr.scope")));
+    }
+
+    @Test
+    void anIdWithUnitsLeftIsTaken() {
+        assertTrue(SessionReaper.taken("s123-1", List.of("botmaker-sess-s123-1-gamescope.scope")));
+        assertTrue(SessionReaper.taken("s123-1", List.of("botmaker-sess-s123-1.slice")));
+        assertFalse(SessionReaper.taken("s123-1", List.of("botmaker-sess-s123-10-app.scope")),
+            "s123-10 is another session");
+        assertFalse(SessionReaper.taken("s123-2", List.of()));
+    }
+
+    @Test
     void theSessionIdIsReadBackOutOfTheSliceName() {
         assertEquals("s123-4", SessionReaper.sessionIdOf("botmaker-sess-s123-4.slice"));
         assertEquals("s123", SessionReaper.sessionIdOf("botmaker-sess-s123.slice"));

@@ -122,6 +122,8 @@ public final class NestedSession implements PrivateSession {
     public static NestedSession start(SessionOptions options) throws SessionStartException {
         // Id shape s<pid>-<seq> is a contract: the orphan sweep parses the owner pid back out of the slice name.
         String id = "s" + ProcessHandle.current().pid() + "-" + SEQ.incrementAndGet();
+        // Another copy of this class in this JVM (a plugin reloaded in place) counted from 1 too.
+        while (SessionReaper.taken(id)) id = "s" + ProcessHandle.current().pid() + "-" + SEQ.incrementAndGet();
         // Claimed here rather than after the tree is up, because the sweep below runs *concurrently* with the
         // bring-up: from its point of view an unclaimed slice owned by this pid is an abandoned one, and it would
         // stop the session being built right now. The claim is dropped again on a failed start.

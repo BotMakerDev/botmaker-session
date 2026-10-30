@@ -11,7 +11,13 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ## [Unreleased]
 
-No source changes since v0.5.1; re-released for updated upstream pins.
+### Fixed
+
+- A private display survives a plugin reloaded in place. The reloaded copy's first session took the old copy's id
+  (its count started at 1 again) and its orphan sweep took the old copy's live session for abandoned: the game died.
+  A new session now skips an id systemd still knows, and the sweep spares a session of this JVM whose display runs.
+- A launch form whose window is late is stopped before the next form runs: the next one was refused its unit name
+  ("Unit …-app.scope was already loaded"), so Steam's `flatpak run` form never ran.
 
 No source changes since v0.5.0; re-released for updated upstream pins (shared v0.5.1, whose Heroic titles decode
 their escapes).

@@ -203,6 +203,22 @@ public final class SessionReaper {
         toKill.forEach(this::destroyTree);
     }
 
+    /**
+     * Stops one launch of {@code role} — {@code p} and, under systemd, its scope — and leaves the session up: the
+     * next launch of that role takes the same unit name, which systemd refuses while the first is loaded ("Unit
+     * botmaker-sess-…-app.scope was already loaded", 2026-10-30: Steam's second launch form after the first one's
+     * window was late).
+     */
+    public void stop(SessionUnit role, Process p) {
+        if (p != null) {
+            destroyTree(p);
+            synchronized (lock) {
+                launched.remove(p);
+            }
+        }
+        if (useSystemd) stopUnit(role.scopeName(id));
+    }
+
     /** Force-destroy {@code p} together with its descendants; best-effort, like every other teardown step. */
     private void destroyTree(Process p) {
         try {
@@ -347,6 +363,12 @@ public final class SessionReaper {
                 if (isLive(sessionIdOf(slice), liveSessionIds)) {
                     continue;
                 }
+                // Held by another copy of this library in this JVM: a plugin reloaded in place starts with its
+                // own empty claims, and its first session's sweep took the old copy's live game down with it
+                // (2026-10-30, Balatro). Its display still runs; an abandoned one's is gone.
+                if (displayRuns(sessionIdOf(slice), listUnits(SessionUnit.unitGlob(sessionIdOf(slice)), true))) {
+                    continue;
+                }
                 why = "we no longer hold it";
             } else if (ProcessHandle.of(ownerPid).map(ProcessHandle::isAlive).orElse(false)) {
                 continue; // another live JVM still manages this session
@@ -374,6 +396,31 @@ public final class SessionReaper {
         return SessionUnit.stripPrefix(name);
     }
 
+    /**
+     * Whether a display server of session {@code id}, or of a session under it ({@code s123} holds {@code s123-1}),
+     * is among the {@code active} units: then the session is in use, whoever holds it.
+     */
+    static boolean displayRuns(String id, Collection<String> active) {
+        String prefix = ProcessOrigin.SESSION_UNIT_PREFIX + id + "-";
+        return active.stream().anyMatch(unit -> unit.startsWith(prefix)
+                && (unit.endsWith("-" + SessionUnit.GAMESCOPE.role() + ".scope")
+                || unit.endsWith("-" + SessionUnit.XEPHYR.role() + ".scope")));
+    }
+
+    /**
+     * Whether systemd still knows a unit of session {@code id}: a new session must take another id. The sequence
+     * behind an id is a static of this class, so a plugin reloaded in place counts from 1 again, and its first
+     * session was refused the units of the old copy's live one, then reaped that one's slice (2026-10-30).
+     */
+    public static boolean taken(String id) {
+        return systemdAvailable() && taken(id, listUnits(SessionUnit.unitGlob(id)));
+    }
+
+    static boolean taken(String id, Collection<String> units) {
+        String unit = ProcessOrigin.SESSION_UNIT_PREFIX + id;
+        return units.stream().anyMatch(u -> u.equals(unit + ".slice") || u.startsWith(unit + "-"));
+    }
+
     /** The names of every {@code botmaker-sess-*} slice systemd currently knows, or empty on any failure. */
     private static List<String> listSessionSlices() {
         return listUnits(SessionUnit.sliceGlob()).stream().filter(u -> u.endsWith(".slice")).toList();
@@ -385,10 +432,15 @@ public final class SessionReaper {
      * inactive is still a leftover worth collecting.
      */
     private static List<String> listUnits(String pattern) {
+        return listUnits(pattern, false);
+    }
+
+    /** As {@link #listUnits(String)}; {@code activeOnly}, the running ones alone. */
+    private static List<String> listUnits(String pattern, boolean activeOnly) {
         List<String> units = new ArrayList<>();
         try {
-            Process p = new ProcessBuilder("systemctl", "--user", "list-units", "--all", "--plain",
-                "--no-legend", pattern)
+            Process p = new ProcessBuilder("systemctl", "--user", "list-units", activeOnly ? "--state=active" : "--all",
+                "--plain", "--no-legend", pattern)
                 .redirectError(Redirect.DISCARD).start();
             String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             p.waitFor(5, TimeUnit.SECONDS);

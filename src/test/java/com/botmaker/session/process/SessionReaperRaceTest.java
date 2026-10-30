@@ -132,6 +132,27 @@ class SessionReaperRaceTest {
         }
     }
 
+    /**
+     * A launch form whose window was late is stopped before the next form runs: under systemd the next one takes
+     * the same unit name, which {@code systemd-run} refused while the first was loaded (2026-10-30, Steam's
+     * {@code flatpak run} form after {@code steam -applaunch}).
+     */
+    @Test
+    void stoppingOneLaunchFreesItsUnitForTheNext() throws Exception {
+        SessionReaper reaper = new SessionReaper("stop-one");
+        try {
+            Process first = reaper.launch(SessionUnit.APP, SLEEPER, Map.of(), Redirect.DISCARD);
+            reaper.stop(SessionUnit.APP, first);
+            assertTrue(first.waitFor(5, TimeUnit.SECONDS), "stop() left the first launch alive");
+
+            Process second = reaper.launch(SessionUnit.APP, SLEEPER, Map.of(), Redirect.DISCARD);
+            assertFalse(second.waitFor(1, TimeUnit.SECONDS), "the second launch of the role exited at once: "
+                    + "its unit name was still taken");
+        } finally {
+            reaper.reap();
+        }
+    }
+
     /** {@code reap()} is idempotent by contract; a second call must not throw or re-kill. */
     @Test
     void reapIsIdempotent() {
