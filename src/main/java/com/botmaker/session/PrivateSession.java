@@ -12,6 +12,14 @@ public interface PrivateSession extends DesktopSession {
     SessionBackend backend();
 
     /**
+     * The id of the reap group this process brought the display up in ({@code s<pid>-<seq>}), or null for a display
+     * it joined: what tells a display number still this session's from one another server took since.
+     */
+    default String sessionId() {
+        return null;
+    }
+
+    /**
      * The X id of the {@link #attached() attached} window, or {@code 0} when nothing is attached — so a consumer
      * never has to unwrap a JNA {@code Pointer} out of a window handle.
      */

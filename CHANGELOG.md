@@ -13,6 +13,16 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ### Fixed
 
+- A single-instance launcher in another private display refuses the launch (`LAUNCHER_IN_OTHER_SESSION`): Steam in
+  Balatro's display took TrackMania's launch and started it there, and the new display mapped no window
+  (2026-10-30). `SessionReaper.stopSession` closes that display on request.
+- A display number reused by the next session is no longer torn down with the old one: a session's members are its
+  own processes by session id, not every process naming the display (the old teardown killed the new Steam), and a
+  session stopped on request keeps its id from the next.
+- What a session runs leaves no crash report: it runs under `prlimit --core=1`, so a `bwrap` or `steamwebhelper`
+  dying at teardown no longer pops "service crashed" notifications.
+- `BackgroundLauncher.adopt` with a session id rejoins that session's display after a reload even when the window it
+  remembered is gone (Hades II's Steam sign-in window).
 - A private display survives a plugin reloaded in place. The reloaded copy's first session took the old copy's id
   (its count started at 1 again) and its orphan sweep took the old copy's live session for abandoned: the game died.
   A new session now skips an id systemd still knows, and the sweep spares a session of this JVM whose display runs.

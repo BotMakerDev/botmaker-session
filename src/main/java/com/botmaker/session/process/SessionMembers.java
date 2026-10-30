@@ -1,6 +1,7 @@
 package com.botmaker.session.process;
 
 import com.botmaker.shared.Diag;
+import com.botmaker.shared.launch.ProcessOrigin;
 import com.botmaker.shared.platform.SessionEnv;
 
 import java.nio.charset.StandardCharsets;
@@ -88,6 +89,17 @@ public final class SessionMembers {
      * @param infraUnits   systemd unit names whose members are session infrastructure, not payload
      */
     public static List<ProcessHandle> of(String displayName, String busAddress, Collection<String> infraUnits) {
+        return of(displayName, busAddress, infraUnits, null);
+    }
+
+    /**
+     * {@link #of(String, String, Collection)} for session {@code sessionId}, sparing what runs in another BotMaker
+     * session: a display number is reused once its server is gone, and the teardown of a session whose display had
+     * died asked the payload of the next session on that number to exit, killing its Steam as it started
+     * (2026-10-30, Hades II). A process a portal moved out of every session's slice still counts.
+     */
+    public static List<ProcessHandle> of(String displayName, String busAddress, Collection<String> infraUnits,
+                                         String sessionId) {
         String displayEnv = displayName == null ? null : SessionEnv.assignment(SessionEnv.DISPLAY, displayName);
         String busEnv = busAddress == null ? null
             : SessionEnv.assignment(SessionEnv.DBUS_SESSION_BUS_ADDRESS, busAddress);
@@ -98,7 +110,8 @@ public final class SessionMembers {
         List<ProcessHandle> members = new ArrayList<>();
         ProcessHandle.allProcesses().forEach(p -> {
             if (excluded.contains(p.pid()) || !mentions(environ(p.pid()), displayEnv, busEnv)
-                    || isInfrastructure(p.pid(), infraUnits)) {
+                    || isInfrastructure(p.pid(), infraUnits)
+                    || inAnotherSession(sessionId, ProcessOrigin.sessionIdOf(p.pid()))) {
                 return;
             }
             members.add(p);
@@ -267,6 +280,11 @@ public final class SessionMembers {
             }
         }
         return false;
+    }
+
+    /** Whether a process of session {@code theirs} (null: of none) is another session's than {@code ours}. Pure. */
+    static boolean inAnotherSession(String ours, String theirs) {
+        return ours != null && theirs != null && !theirs.equals(ours);
     }
 
     /** A process's raw environment block ({@code NUL}-separated), or {@code null} if it can't be read. */

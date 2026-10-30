@@ -63,6 +63,22 @@ class SessionReaperSweepTest {
     }
 
     @Test
+    void whatASessionRunsLeavesNoCrashReport() {
+        assertEquals(List.of("prlimit", "--core=1", "--", "steam", "-applaunch", "11020"),
+            SessionReaper.withoutCrashReports(List.of("steam", "-applaunch", "11020"), true));
+        assertEquals(List.of("steam"), SessionReaper.withoutCrashReports(List.of("steam"), false),
+            "without prlimit the command runs as it is");
+    }
+
+    @Test
+    void aSessionStoppedOnRequestKeepsItsIdFromTheNext() {
+        // No unit of it is left, yet the closed session's own teardown stops its slice by name a moment later.
+        String id = "s0-424242";
+        SessionReaper.stopSession(id);
+        assertTrue(SessionReaper.taken(id));
+    }
+
+    @Test
     void theSessionIdIsReadBackOutOfTheSliceName() {
         assertEquals("s123-4", SessionReaper.sessionIdOf("botmaker-sess-s123-4.slice"));
         assertEquals("s123", SessionReaper.sessionIdOf("botmaker-sess-s123.slice"));

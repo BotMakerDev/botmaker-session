@@ -5,9 +5,11 @@ import com.botmaker.session.SessionBackend;
 import com.botmaker.session.SessionOptions;
 import com.botmaker.session.Sessions;
 import com.botmaker.session.display.SessionBackends;
+import com.botmaker.session.process.SessionReaper;
 import com.botmaker.session.remote.WindowIds;
 import com.botmaker.shared.capture.GenericWindow;
 import com.botmaker.shared.launch.LaunchSpec;
+import com.botmaker.shared.launch.ProcessOrigin;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -203,12 +205,13 @@ public final class BackgroundLauncher implements AutoCloseable {
                 // The display came up but the game never mapped a window on :N — nothing to preview or drive.
                 // Fail LOUDLY and stay off :0: do not leave a caller thinking it worked on the real desktop.
                 String display = session.displayName();
+                String id = session.sessionId();
                 session.close();
                 // The up-front probe already ruled out what it can see, so the backstop reports what the process
                 // table says actually happened — escaped to the desktop, or never started — rather than
                 // offering both as a guess.
                 report(report, false, "Couldn't run " + spec.describe() + " on the private display " + display
-                        + " — it didn't map a window there. " + LaunchIsolation.noWindowDiagnosis(spec));
+                        + " — it didn't map a window there. " + LaunchIsolation.noWindowDiagnosis(spec, id));
                 return;
             }
             SessionBackends.DisplaySize size = SessionBackends.sizeFor(width, height);
@@ -284,13 +287,25 @@ public final class BackgroundLauncher implements AutoCloseable {
      * window no longer answers.
      */
     public synchronized PrivateSession adopt(String display, String window, SessionBackend backend) {
+        return adopt(display, window, backend, null);
+    }
+
+    /**
+     * {@link #adopt(String, String, SessionBackend)}, also joining the display when that window has closed while a
+     * process of {@code sessionId}, the session the display was brought up in, still draws on it: then it is that
+     * session's, and its newest window is the one joined. A store launcher's game is attached to the launcher's
+     * window first, which closes once the game's opens; the hand-off kept the first, so a plugin reloaded in place
+     * did not join its own game and offered to close it (2026-10-30, Hades II through Steam).
+     */
+    public synchronized PrivateSession adopt(String display, String window, SessionBackend backend,
+                                             String sessionId) {
         PrivateSession held = active;
         if (held != null) return held;
         long wanted = WindowIds.parse(window);
         if (wanted == 0 || display == null || display.strip().equals(released)) return null;
         PrivateSession adopted = Sessions.adopt(display, window, backend).orElse(null);
         if (adopted == null) return null;
-        if (adopted.attachedWindowId() != wanted) {
+        if (adopted.attachedWindowId() != wanted && !ProcessOrigin.sessionDraws(sessionId, display)) {
             adopted.close();
             return null;
         }
@@ -327,6 +342,18 @@ public final class BackgroundLauncher implements AutoCloseable {
     @Override
     public void close() {
         stop();
+    }
+
+    /**
+     * Stops the session {@code id}, whoever holds it: the holder of a project this JVM opened lets go of it first,
+     * so its next launch is not refused as "already running" over a display that is gone.
+     */
+    public static void stopSession(String id) {
+        INSTANCES.values().stream().filter(launcher -> {
+            PrivateSession session = launcher.active;
+            return session != null && id.equals(session.sessionId());
+        }).forEach(BackgroundLauncher::stop);
+        SessionReaper.stopSession(id);
     }
 
     /**

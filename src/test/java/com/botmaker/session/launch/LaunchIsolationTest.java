@@ -36,11 +36,11 @@ class LaunchIsolationTest {
     @Test
     void aNativeBinaryOnPathIsIsolatableAndNamesTheCommandThatWouldRun() {
         LaunchIsolation.Verdict v = LaunchIsolation.check(
-                spec(LaunchKind.HEROIC, "Firestone"), installed("heroic"), NO_HOST_LAUNCHER);
+                spec(LaunchKind.STEAM, "570"), installed("steam"), NO_HOST_LAUNCHER);
 
         assertTrue(v.isolatable());
         assertEquals(LaunchIsolation.Blocker.NONE, v.blocker());
-        assertEquals("heroic", v.command().get(0));
+        assertEquals("steam", v.command().get(0));
         assertNull(v.reason());
     }
 
@@ -49,16 +49,16 @@ class LaunchIsolationTest {
         // The whole point of the private bus: with dbus-daemon we can give the session its own Flatpak portal,
         // so the game's container is spawned from *our* environment and stays on :N.
         LaunchIsolation.Verdict withBus = LaunchIsolation.check(
-                spec(LaunchKind.HEROIC, "Firestone"),
+                spec(LaunchKind.STEAM, "570"),
                 installed("flatpak", LaunchIsolation.PRIVATE_BUS_BINARY), NO_HOST_LAUNCHER);
         assertTrue(withBus.isolatable());
-        assertEquals(List.of("flatpak", "run", "com.heroicgameslauncher.hgl",
-                "--no-gui", "--no-sandbox", "heroic://launch/Firestone"), withBus.command());
+        assertEquals(List.of("flatpak", "run", "com.valvesoftware.Steam", "-applaunch", "570"),
+                withBus.command());
 
         // Without it, the host's portal — a D-Bus-activated service holding DISPLAY=:0 — would spawn the game on
         // the real desktop. Refusing up front is the difference between a sentence and a two-minute mystery.
         LaunchIsolation.Verdict withoutBus = LaunchIsolation.check(
-                spec(LaunchKind.HEROIC, "Firestone"), installed("flatpak"), NO_HOST_LAUNCHER);
+                spec(LaunchKind.STEAM, "570"), installed("flatpak"), NO_HOST_LAUNCHER);
         assertFalse(withoutBus.isolatable());
         assertEquals(LaunchIsolation.Blocker.PORTAL_WOULD_ESCAPE, withoutBus.blocker());
         assertTrue(withoutBus.reason().contains(LaunchIsolation.PRIVATE_BUS_BINARY), withoutBus.reason());
@@ -78,10 +78,10 @@ class LaunchIsolationTest {
     @Test
     void nothingInstalledIsItsOwnAnswerAndNamesWhatWasTried() {
         LaunchIsolation.Verdict v = LaunchIsolation.check(
-                spec(LaunchKind.FAUGUS, "battlenet"), installed(), NO_HOST_LAUNCHER);
+                spec(LaunchKind.STEAM, "570"), installed(), NO_HOST_LAUNCHER);
 
         assertEquals(LaunchIsolation.Blocker.NOT_INSTALLED, v.blocker());
-        assertTrue(v.reason().contains("faugus-launcher"), v.reason());
+        assertTrue(v.reason().contains("steam"), v.reason());
         assertTrue(v.reason().contains("flatpak"), v.reason());
     }
 
@@ -122,14 +122,27 @@ class LaunchIsolationTest {
     }
 
     @Test
+    void aLauncherInAnotherPrivateDisplayRefusesTheLaunch() {
+        // TrackMania's launch on :2 went to the Steam another project left in :1, and no window mapped.
+        List<HostLauncherProbe.InSession> held = List.of(new HostLauncherProbe.InSession(LaunchKind.STEAM, "s1-1",
+                ":1"));
+        LaunchIsolation.Verdict v = LaunchIsolation.check(spec(LaunchKind.STEAM, "11020"), installed("steam"),
+                NO_HOST_LAUNCHER, s -> held);
+
+        assertEquals(LaunchIsolation.Blocker.LAUNCHER_IN_OTHER_SESSION, v.blocker());
+        assertEquals(HostLauncherProbe.sessionRefusal(spec(LaunchKind.STEAM, "11020"), held), v.reason());
+        assertTrue(v.command().isEmpty());
+    }
+
+    @Test
     void anOpenHostLauncherOutranksEverythingElseAndReusesTheSharedWording() {
         // Installed and otherwise perfectly isolatable, but a single-instance launcher on :0 would take the
         // launch off us regardless — and the refusal must read the same here as everywhere else.
         LaunchIsolation.Verdict v = LaunchIsolation.check(
-                spec(LaunchKind.HEROIC, "Firestone"), installed("heroic"), s -> true);
+                spec(LaunchKind.STEAM, "570"), installed("steam"), s -> true);
 
         assertEquals(LaunchIsolation.Blocker.HOST_LAUNCHER_OPEN, v.blocker());
-        assertEquals(HostLauncherProbe.refusalMessage(LaunchKind.HEROIC), v.reason());
+        assertEquals(HostLauncherProbe.refusalMessage(spec(LaunchKind.STEAM, "570")), v.reason());
     }
 
     @Test

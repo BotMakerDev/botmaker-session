@@ -42,6 +42,15 @@ class SessionMembersTest {
     }
 
     @Test
+    void anotherSessionsProcessIsNoMemberWhateverDisplayItNames() {
+        // The next session on a reused :1, Hades II's Steam, was asked to exit by the teardown of the one before.
+        assertTrue(SessionMembers.inAnotherSession("s1-1", "s1-2"));
+        assertFalse(SessionMembers.inAnotherSession("s1-1", "s1-1"));
+        assertFalse(SessionMembers.inAnotherSession("s1-1", null), "a process a portal moved out still counts");
+        assertFalse(SessionMembers.inAnotherSession(null, "s1-2"));
+    }
+
+    @Test
     void aProcessCarryingTheSessionDisplayIsAMember() throws Exception {
         String display = uniqueDisplay();
         Process member = spinner(Map.of("DISPLAY", display));

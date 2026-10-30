@@ -3,6 +3,7 @@ package com.botmaker.session.process;
 import com.botmaker.session.display.GamescopeDisplay;
 
 import com.botmaker.shared.Diag;
+import com.botmaker.shared.Executables;
 import com.botmaker.shared.launch.ProcessOrigin;
 import com.botmaker.shared.platform.SessionEnv;
 
@@ -132,6 +133,7 @@ public final class SessionReaper {
             }
         }
         roles.add(role);
+        command = withoutCrashReports(command, Prlimit.PRESENT);
         List<String> full = new ArrayList<>();
         ProcessBuilder pb;
         if (useSystemd) {
@@ -173,6 +175,26 @@ public final class SessionReaper {
             stopUnit(role.scopeName(id));
         }
         throw new IllegalStateException("SessionReaper " + id + " already reaped");
+    }
+
+    /** Whether util-linux's {@code prlimit} is here, asked on the first launch. */
+    private static final class Prlimit {
+        static final boolean PRESENT = Executables.onPath("prlimit");
+    }
+
+    /**
+     * {@code command} run with a core size of 1, when {@code prlimit} is here: what a session runs crashes when it
+     * is torn down (Steam's Chromium helper loses its display) and Steam's runtime probes its sandbox with a
+     * {@code bwrap} that dies of SIGSYS at each start. Each one was a crash report, and on KDE a notification
+     * (2026-10-30, the user's: "way too many"). A limit of 1, not 0: the kernel then skips a piped
+     * {@code core_pattern} (systemd-coredump) altogether, where 0 still hands it the crash. {@code prlimit} execs the
+     * command, so its pid is the command's. Pure.
+     */
+    static List<String> withoutCrashReports(List<String> command, boolean prlimit) {
+        if (!prlimit || command.isEmpty()) return command;
+        List<String> limited = new ArrayList<>(List.of("prlimit", "--core=1", "--"));
+        limited.addAll(command);
+        return List.copyOf(limited);
     }
 
     /**
@@ -321,6 +343,9 @@ public final class SessionReaper {
      */
     private static final Set<String> LIVE = ConcurrentHashMap.newKeySet();
 
+    /** The sessions {@link #stopSession} stopped: {@link #taken} keeps their ids from a new session. */
+    private static final Set<String> STOPPED = ConcurrentHashMap.newKeySet();
+
     /** Marks {@code sessionId} as held by this JVM, so {@link #reapOrphans()} spares its slice. */
     public static void claim(String sessionId) {
         LIVE.add(sessionId);
@@ -329,6 +354,23 @@ public final class SessionReaper {
     /** This JVM no longer holds {@code sessionId}: the next sweep may reap whatever is left in its slice. */
     public static void release(String sessionId) {
         LIVE.remove(sessionId);
+    }
+
+    /**
+     * Stops session {@code id} whoever holds it — its slice, then any unit it left — and no longer counts it as this
+     * JVM's. What closing another private display takes when its launcher would take a new launch (2026-10-30): the
+     * project that started it is closed, so no object of it is left to stop. No-op without user systemd.
+     */
+    public static void stopSession(String id) {
+        if (id == null) return;
+        // Its id is never handed out again: the closed session's own teardown stops its slice by name a moment
+        // later, and took down the new session that had just been given the same id (2026-10-30, live).
+        STOPPED.add(id);
+        if (!systemdAvailable()) return;
+        release(id);
+        stopUnit(SessionUnit.sliceName(id));
+        listUnits(SessionUnit.unitGlob(id)).forEach(SessionReaper::stopUnit);
+        Diag.log("[Session] stopped session " + id + " on request");
     }
 
     /** {@link #reapOrphans(Collection)} sparing exactly the sessions this JVM {@link #claim claimed}. */
@@ -413,7 +455,7 @@ public final class SessionReaper {
      * session was refused the units of the old copy's live one, then reaped that one's slice (2026-10-30).
      */
     public static boolean taken(String id) {
-        return systemdAvailable() && taken(id, listUnits(SessionUnit.unitGlob(id)));
+        return STOPPED.contains(id) || systemdAvailable() && taken(id, listUnits(SessionUnit.unitGlob(id)));
     }
 
     static boolean taken(String id, Collection<String> units) {

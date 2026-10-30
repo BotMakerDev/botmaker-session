@@ -98,7 +98,7 @@ final class PrivateLaunch {
         // One up-front question — "can this be confined at all?" — instead of three separate guards that each
         // answered part of it. A refusal here costs nothing; discovering the same thing after the launch costs
         // the whole window budget and reaps a half-booted launcher (the Electron SIGTRAP).
-        LaunchIsolation.Verdict verdict = LaunchIsolation.check(spec);
+        LaunchIsolation.Verdict verdict = LaunchIsolation.check(spec, id);
         if (!verdict.isolatable()) {
             Diag.error("[Session] " + id + ": " + verdict.reason());
             return;
@@ -149,7 +149,7 @@ final class PrivateLaunch {
         // Every form ran but nothing appeared on :N. Rather than guess, ask what the process table says actually
         // happened — and say where the app's own account of it is.
         Diag.error("[Session] " + id + ": " + spec.spec() + " launched but no window appeared on "
-            + display.displayName() + ". " + LaunchIsolation.noWindowDiagnosis(spec) + outputHint(log));
+            + display.displayName() + ". " + LaunchIsolation.noWindowDiagnosis(spec, id) + outputHint(log));
     }
 
     /**

@@ -39,9 +39,12 @@ class NestedSessionTest {
 
     @Test
     void storeLaunchersRunTheirChildLaunchableCliLadder() {
-        // Heroic: run the CLI form as our child (inheriting DISPLAY=:N) — the heroic:// URL is Heroic's own
-        // argv, not a handoff to the desktop's URL opener, which a launcher already on :0 would swallow.
-        assertEquals(LaunchCommands.heroic("AbC123"), LaunchCommands.childLadder(LaunchSpec.parse("heroic:AbC123")));
+        // Run the CLI form as our child (inheriting DISPLAY=:N), never a handoff to the desktop's URL opener, which
+        // a launcher already on :0 would swallow. Heroic was this test's example until Linux launched through
+        // Lutris (2026-10-29), and builds no ladder there now.
+        // An id no Lutris game has: a real one on Lutris's Steam runner starts as Steam's.
+        assertEquals(LaunchCommands.lutris("999999"),
+            LaunchCommands.childLadder(LaunchSpec.parse("lutris:999999")));
         assertEquals(LaunchCommands.steam("570"), LaunchCommands.childLadder(LaunchSpec.parse("steam:570")));
     }
 

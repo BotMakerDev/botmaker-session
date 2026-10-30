@@ -440,7 +440,7 @@ public final class NestedSession implements PrivateSession {
      */
     private void shutdownMembers() {
         List<ProcessHandle> members = SessionMembers.of(display.displayName(),
-            bus == null ? null : bus.address(), reaper.unitNamesExcept(SessionUnit.APP));
+            bus == null ? null : bus.address(), reaper.unitNamesExcept(SessionUnit.APP), id);
         if (members.isEmpty()) {
             return;
         }
@@ -467,7 +467,7 @@ public final class NestedSession implements PrivateSession {
     private void awaitNoMembers(long deadline) {
         while (System.currentTimeMillis() < deadline) {
             List<ProcessHandle> stragglers = SessionMembers.of(display.displayName(),
-                bus == null ? null : bus.address(), reaper.unitNamesExcept(SessionUnit.APP));
+                bus == null ? null : bus.address(), reaper.unitNamesExcept(SessionUnit.APP), id);
             if (stragglers.isEmpty()) {
                 return;
             }
@@ -517,7 +517,7 @@ public final class NestedSession implements PrivateSession {
         hostWindow.reveal();
     }
 
-    /** This session's reap-group id — for diagnostics and tests. */
+    @Override
     public String sessionId() {
         return id;
     }

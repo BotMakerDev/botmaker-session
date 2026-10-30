@@ -9,6 +9,7 @@ import com.botmaker.shared.launch.RunningProbe;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
@@ -61,6 +62,11 @@ public final class LaunchIsolation {
         NO_CHILD_COMMAND,
         /** The launcher's own UI is already running on the host desktop and would swallow the launch. */
         HOST_LAUNCHER_OPEN,
+        /**
+         * The launcher runs in another of BotMaker's private displays, which takes the launch the same way: one a
+         * project opened earlier left running (2026-10-30, TrackMania into Balatro's Steam).
+         */
+        LAUNCHER_IN_OTHER_SESSION,
         /** Only the Flatpak form is installed, and no private bus is available to own its portal. */
         PORTAL_WOULD_ESCAPE,
         /** Nothing that could start this target is installed. */
@@ -92,7 +98,16 @@ public final class LaunchIsolation {
 
     /** Whether {@code spec} can be launched into a private display, and why not when it can't. */
     public static Verdict check(LaunchSpec spec) {
-        return check(spec, Executables::exists, HostLauncherProbe::isRunning);
+        return check(spec, null);
+    }
+
+    /**
+     * {@link #check(LaunchSpec)} for a launch into the session {@code launchingInto} (null: one not made yet),
+     * whose own launcher takes the launch where it is wanted.
+     */
+    public static Verdict check(LaunchSpec spec, String launchingInto) {
+        return check(spec, Executables::exists, HostLauncherProbe::isRunning, s -> HostLauncherProbe.inSessions(s)
+                .stream().filter(held -> !held.session().equals(launchingInto)).toList());
     }
 
     /**
@@ -142,6 +157,15 @@ public final class LaunchIsolation {
      * @param hostLauncherRunning  whether the spec's launcher UI is already up on the host
      */
     static Verdict check(LaunchSpec spec, Predicate<String> installed, Predicate<LaunchSpec> hostLauncherRunning) {
+        return check(spec, installed, hostLauncherRunning, s -> List.of());
+    }
+
+    /**
+     * {@link #check(LaunchSpec, Predicate, Predicate)} with the other private sessions holding the spec's launcher
+     * given.
+     */
+    static Verdict check(LaunchSpec spec, Predicate<String> installed, Predicate<LaunchSpec> hostLauncherRunning,
+                         Function<LaunchSpec, List<HostLauncherProbe.InSession>> inOtherSessions) {
         List<List<String>> ladder = LaunchCommands.childLadder(spec);
         if (ladder.isEmpty()) {
             return new Verdict(Blocker.NO_CHILD_COMMAND, List.of(), noChildCommandReason(spec));
@@ -154,6 +178,11 @@ public final class LaunchIsolation {
             // check is still unverified; until it is, "close it and retry" beats re-running the launch that
             // produced the coredump.
             return new Verdict(Blocker.HOST_LAUNCHER_OPEN, List.of(), HostLauncherProbe.refusalMessage(spec));
+        }
+        List<HostLauncherProbe.InSession> held = inOtherSessions.apply(spec);
+        if (!held.isEmpty()) {
+            return new Verdict(Blocker.LAUNCHER_IN_OTHER_SESSION, List.of(), HostLauncherProbe.sessionRefusal(spec,
+                    held));
         }
         for (List<String> rung : ladder) {
             String program = LaunchCommands.executable(rung);
@@ -180,12 +209,25 @@ public final class LaunchIsolation {
      * (it escaped to the real desktop); nothing running means it never got that far.
      */
     public static String noWindowDiagnosis(LaunchSpec spec) {
+        return noWindowDiagnosis(spec, null);
+    }
+
+    /**
+     * {@link #noWindowDiagnosis(LaunchSpec)} for a launch into the session {@code launchingInto}: its own launcher,
+     * still updating when the window wait ended, is not one in another private display.
+     */
+    public static String noWindowDiagnosis(LaunchSpec spec, String launchingInto) {
         if (spec == null) {
             return "Nothing was launched.";
         }
         if (HostLauncherProbe.isRunning(spec)) {
             // A launcher opened *during* bring-up — the one case the up-front probe genuinely cannot catch.
             return HostLauncherProbe.refusalMessage(spec);
+        }
+        List<HostLauncherProbe.InSession> held = HostLauncherProbe.inSessions(spec).stream()
+                .filter(each -> !each.session().equals(launchingInto)).toList();
+        if (!held.isEmpty()) {
+            return HostLauncherProbe.sessionRefusal(spec, held);
         }
         if (RunningProbe.commandLineMentions(spec.token())) {
             return "It is running, but outside the private display — check your real desktop. Something in its "
