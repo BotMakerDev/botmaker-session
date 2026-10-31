@@ -103,7 +103,7 @@ jobs:
   # and that the Linux-only backends report themselves unavailable rather than throw.
   macos:
     if: github.event_name == 'workflow_dispatch'
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
 
