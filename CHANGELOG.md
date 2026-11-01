@@ -9,6 +9,12 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
+## [Unreleased]
+
+### Changed
+
+- Re-released with the macOS CI jobs moved to `macos-15`, since the `macos-14` runner images retire on 2026-11-02 and their brownout cancelled the macOS package leg of Studio's v1.11.0 tag. No source changes since v0.6.0.
+
 ## [0.6.0] — 2026-11-01
 
 ### Fixed
