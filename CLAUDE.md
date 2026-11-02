@@ -76,9 +76,9 @@ files, and nothing else in this repo is modular.
   silently no-op'ing. `BACKGROUND_CLICK` is the load-bearing one — only a nested session can offer it,
   because only there is the global pointer the bot's alone.
 - **Two backends, one seam.** Xephyr (2D, needs a window manager for EWMH/focus) and gamescope (hardware 3D,
-  *is* its own WM, hosts an embedded Xwayland). `SessionBackends.preferredBackend(spec)` picks by launch kind:
-  a store-launcher/Proton/exe game gets gamescope for a real GPU, a plain command gets Xephyr. Falling back to
-  Xephyr for a game is the software-GL crash this auto-selection exists to prevent.
+  *is* its own WM, hosts an embedded Xwayland). `SessionBackends.preferredBackend(spec)` answers gamescope for every kind, an emulator app too
+  (2026-11-02: its window resizes); Xephyr only behind an explicit `BotSettings` pin. Falling back to Xephyr for
+  a game is the software-GL crash this exists to prevent.
 - **Everything spawned lives in one reap group** (`SessionReaper`, systemd transient scopes under a
   per-session slice), so `close()` takes the whole tree down and a `kill -9`'d JVM leaves no orphans.
 - **The `:N` connection lives in a child process.** Xlib's default *I/O* error handler calls `exit(1)` in

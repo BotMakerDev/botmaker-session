@@ -9,6 +9,12 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
+## [Unreleased]
+
+### Changed
+
+- An emulator app (Waydroid) runs on a gamescope private display instead of Xephyr, so its window on the desktop can be resized: gamescope scales the picture and the display keeps the bot's size. Waydroid's own gamescope still hosts it inside.
+
 ## [0.6.1] — 2026-11-01
 
 ### Changed

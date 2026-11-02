@@ -96,30 +96,24 @@ public final class SessionBackends {
      */
     public static final String FIXED_SIZE_NOTE =
             "A private display keeps this size for the life of the session — it is what the bot's pictures "
-            + "were cut at, so it is not the desktop's to negotiate. Resizing the Xephyr window does not "
-            + "change it (the pixels behind the window are all still there). To change it, set the bot's "
+            + "were cut at, so it is not the desktop's to negotiate. Resizing its window only scales the "
+            + "picture (the pixels behind the window are all still there). To change it, set the bot's "
             + "screen size (Sdk.screen()) and start the session again.";
 
     /**
-     * The backend a target of this {@code spec} wants, irrespective of what's installed:
-     * {@link SessionBackend#GAMESCOPE} for a game and for a {@code null} spec,
-     * {@link SessionBackend#XEPHYR} for {@link LaunchKind#EMULATOR_APP EMULATOR_APP}.
+     * The backend a target of this {@code spec} wants, irrespective of what's installed: {@link
+     * SessionBackend#GAMESCOPE}, for every kind.
      *
-     * <p><b>The emulator exception is not a fallback.</b> A Waydroid launch <em>is</em> a gamescope — the
-     * child command is {@code gamescope --backend sdl … waydroid app launch <pkg>}, because Waydroid's UI is a
-     * Wayland client and needs a compositor of its own. Choosing gamescope as the display too would nest
-     * gamescope inside gamescope for no gain. Xephyr is the plain X server that gamescope then opens its
-     * window on, and — being a real X server — its framebuffer is the size we asked for regardless of how big
-     * the window showing it happens to be. That is what makes the capture full-resolution.
-     *
-     * <p>This is the exception the class javadoc's "no silent Xephyr fallback" rule allows for: it is a
-     * measured, per-kind answer, not a degradation when gamescope is missing. Without gamescope the emulator
-     * ladder is empty and the launch is refused loudly, exactly as before.
+     * <p><b>An emulator app too (2026-11-02, the user's call).</b> A Waydroid launch <em>is</em> a gamescope —
+     * the child command is {@code gamescope --backend sdl … waydroid app launch <pkg>}, because Waydroid's UI is
+     * a Wayland client and needs a compositor of its own — and it used to open on a Xephyr display, whose
+     * window could not be resized ({@code NestedDisplay.startXephyr} omits {@code -resizeable}). On a gamescope
+     * display that inner gamescope's X window is forced fullscreen at the display's size, and the outer window
+     * on the desktop scales freely, as a game's does, while every frame keeps the display's size. The bot's own
+     * frames come from {@code adb screencap} either way.
      */
     public static SessionBackend preferredBackend(LaunchSpec spec) {
-        return spec != null && spec.kind() == LaunchKind.EMULATOR_APP
-                ? SessionBackend.XEPHYR
-                : SessionBackend.GAMESCOPE;
+        return SessionBackend.GAMESCOPE;
     }
 
     /** Whether {@code backend}'s host binary ({@link SessionBackend#binaryName()}) is on {@code PATH}. */

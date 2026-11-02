@@ -39,13 +39,12 @@ class SessionBackendsTest {
     }
 
     /**
-     * The one exception, and not a fallback: an emulator app's child command <em>is</em> a gamescope (Waydroid
-     * is a Wayland client and needs a compositor), so the display it opens on has to be a plain X server or
-     * gamescope would be nested inside gamescope for nothing.
+     * An emulator app too (2026-11-02): Waydroid's own gamescope opens on a gamescope display, whose window on
+     * the desktop scales when resized, where a Xephyr one could not be resized at all.
      */
     @Test
-    void theEmulatorAppIsTheOneKindThatWantsXephyr() {
-        assertEquals(SessionBackend.XEPHYR,
+    void theEmulatorAppWantsGamescopeToo() {
+        assertEquals(SessionBackend.GAMESCOPE,
                 SessionBackends.preferredBackend(spec(LaunchKind.EMULATOR_APP, "com.foo@Waydroid")));
     }
 
