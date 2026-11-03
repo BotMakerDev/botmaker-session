@@ -22,6 +22,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Check out botmaker-runlog
+        uses: actions/checkout@v7
+        with:
+          repository: BotMakerDev/botmaker-runlog
+          path: .deps/botmaker-runlog
+
       - name: Check out botmaker-shared
         uses: actions/checkout@v7
         with:
@@ -38,6 +44,7 @@ jobs:
       - name: Install botmaker-shared (its main -SNAPSHOT)
         run: |
           source .github/mvn-retry.sh
+          mvn_retry mvn -B -f .deps/botmaker-runlog/pom.xml install -DskipTests
           mvn_retry mvn -B -f .deps/botmaker-shared/pom.xml install -DskipTests
 
       - name: Build
@@ -58,6 +65,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Check out botmaker-runlog
+        uses: actions/checkout@v7
+        with:
+          repository: BotMakerDev/botmaker-runlog
+          path: .deps/botmaker-runlog
+
       - name: Check out botmaker-shared
         uses: actions/checkout@v7
         with:
@@ -74,6 +87,7 @@ jobs:
       - name: Install botmaker-shared (its main -SNAPSHOT)
         run: |
           source .github/mvn-retry.sh
+          mvn_retry mvn -B -f .deps/botmaker-runlog/pom.xml install -DskipTests
           mvn_retry mvn -B -f .deps/botmaker-shared/pom.xml install -DskipTests
 
       - name: Install the nested-display stack
@@ -107,6 +121,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Check out botmaker-runlog
+        uses: actions/checkout@v7
+        with:
+          repository: BotMakerDev/botmaker-runlog
+          path: .deps/botmaker-runlog
+
       - name: Check out botmaker-shared
         uses: actions/checkout@v7
         with:
@@ -122,6 +142,7 @@ jobs:
       - name: Install botmaker-shared (its main -SNAPSHOT)
         run: |
           source .github/mvn-retry.sh
+          mvn_retry mvn -B -f .deps/botmaker-runlog/pom.xml install -DskipTests
           mvn_retry mvn -B -f .deps/botmaker-shared/pom.xml install -DskipTests
 
       - name: Test
