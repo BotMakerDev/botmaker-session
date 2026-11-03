@@ -15,6 +15,8 @@ import com.botmaker.shared.launch.LaunchSpec;
 
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -111,11 +113,32 @@ public final class AdoptedSession implements PrivateSession {
      *                Xwayland reads an absolute warp as window-relative, and getting that wrong puts every click
      *                at the wrong place rather than failing outright
      */
+    /**
+     * Whether a local display {@code :N} (or {@code :N.S}) has no X socket left, so it is surely gone. A remote or
+     * odd name is never said gone: the connection attempt decides those.
+     */
+    static boolean socketGone(String display) {
+        if (!display.startsWith(":")) {
+            return false;
+        }
+        int dot = display.indexOf('.');
+        String number = display.substring(1, dot < 0 ? display.length() : dot);
+        if (number.isEmpty() || !number.chars().allMatch(Character::isDigit)) {
+            return false;
+        }
+        return !Files.exists(Path.of("/tmp/.X11-unix/X" + number));
+    }
+
     public static AdoptedSession adopt(String displayName, String windowId, SessionBackend backend) {
         if (displayName == null || displayName.isBlank()) {
             return null;
         }
         String display = displayName.trim();
+        if (socketGone(display)) {
+            // Opening a link to it would spawn display agents that each log their failure: say it once instead.
+            Diag.log("[Session] can't adopt " + display + ": no such display");
+            return null;
+        }
         DisplayLink link = DisplayLink.open(display, backend);
         if (link == null || !link.alive()) {
             if (link != null) {

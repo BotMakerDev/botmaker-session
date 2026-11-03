@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -22,6 +23,16 @@ class AdoptedSessionTest {
         // touch X11 (this runs on a box with no display at all).
         assertNull(AdoptedSession.adopt(null, null, SessionBackend.GAMESCOPE));
         assertNull(AdoptedSession.adopt("  ", "123", SessionBackend.GAMESCOPE));
+    }
+
+    @Test
+    void aDisplayWithNoSocketIsGoneWithoutAConnectionAttempt() {
+        // Sword x Staff, 2026-11-03: a killed Studio's :3 made each run log six agent failures before the fallback.
+        assertTrue(AdoptedSession.socketGone(":987654"));
+        assertTrue(AdoptedSession.socketGone(":987654.0"));
+        assertNull(AdoptedSession.adopt(":987654", null, SessionBackend.GAMESCOPE));
+        assertFalse(AdoptedSession.socketGone("remote:0"));
+        assertFalse(AdoptedSession.socketGone(":x"));
     }
 
     @Test

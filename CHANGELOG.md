@@ -14,6 +14,7 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 ### Changed
 
 - An emulator app (Waydroid) runs on a gamescope private display instead of Xephyr, so its window on the desktop can be resized: gamescope scales the picture and the display keeps the bot's size. Waydroid's own gamescope still hosts it inside.
+- Adopting a display whose X socket is gone (a killed Studio's `:N`) returns at once with one line, instead of spawning display agents that each log a failure.
 
 ## [0.6.1] — 2026-11-01
 
