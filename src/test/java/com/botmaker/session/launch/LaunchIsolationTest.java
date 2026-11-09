@@ -91,9 +91,10 @@ class LaunchIsolationTest {
         // hand a private DISPLAY to, so no amount of installed software changes the answer.
         for (LaunchSpec s : List.of(spec(LaunchKind.EPIC, "Fortnite"),
                 spec(LaunchKind.EMULATOR_APP, "com.app@Pie64"),
+                spec(LaunchKind.EMULATOR_APP, "com.app@Waydroid"), // over ADB too, since 2026-11-09
                 spec(LaunchKind.UNKNOWN, "whatever"))) {
             LaunchIsolation.Verdict v = LaunchIsolation.check(
-                    s, installed("flatpak", LaunchIsolation.PRIVATE_BUS_BINARY), NO_HOST_LAUNCHER);
+                    s, installed("flatpak", "gamescope", LaunchIsolation.PRIVATE_BUS_BINARY), NO_HOST_LAUNCHER);
             assertEquals(LaunchIsolation.Blocker.NO_CHILD_COMMAND, v.blocker(), s.spec());
             assertNotNull(v.reason());
         }

@@ -6,7 +6,6 @@ import com.botmaker.shared.launch.LaunchSpec;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Pure coverage of the shared background launcher's backend shaping and default sizing — the logic that maps
@@ -41,21 +40,5 @@ class BackgroundLauncherTest {
         SessionOptions o = BackgroundLauncher.optionsFor(game(), SessionBackend.XEPHYR, 0, -5);
         assertEquals(BackgroundLauncher.DEFAULT_WIDTH, o.width());
         assertEquals(BackgroundLauncher.DEFAULT_HEIGHT, o.height());
-    }
-
-    /**
-     * An emulator app brings its own compositor (gamescope is its child, not its display), so the display it
-     * runs on must not manage windows: a window manager would frame and resize that compositor's window, which
-     * is precisely the scaling the private display exists to avoid.
-     */
-    @Test
-    void anEmulatorAppRunsOnAnUnmanagedDisplay() {
-        LaunchSpec waydroid = LaunchSpec.parse("emu-app:com.example.game@Waydroid");
-        SessionOptions o =
-                BackgroundLauncher.optionsFor(waydroid, SessionBackend.XEPHYR, 1080, 1920);
-        assertTrue(o.hasExplicitWindowManager() && o.windowManagerCommand().isEmpty(),
-                "must be an explicit none — a default openbox would resize gamescope's window");
-        assertEquals(1080, o.width());
-        assertEquals(1920, o.height());
     }
 }

@@ -6,7 +6,6 @@ import com.botmaker.session.SessionOptions;
 import com.botmaker.shared.Executables;
 import com.botmaker.shared.capture.linux.input.InputTiming;
 import com.botmaker.shared.capture.linux.input.PointerWarp;
-import com.botmaker.shared.launch.LaunchKind;
 import com.botmaker.shared.launch.LaunchSpec;
 
 import java.util.List;
@@ -102,15 +101,8 @@ public final class SessionBackends {
 
     /**
      * The backend a target of this {@code spec} wants, irrespective of what's installed: {@link
-     * SessionBackend#GAMESCOPE}, for every kind.
-     *
-     * <p><b>An emulator app too (2026-11-02, the user's call).</b> A Waydroid launch <em>is</em> a gamescope —
-     * the child command is {@code gamescope --backend sdl … waydroid app launch <pkg>}, because Waydroid's UI is
-     * a Wayland client and needs a compositor of its own — and it used to open on a Xephyr display, whose
-     * window could not be resized ({@code NestedDisplay.startXephyr} omits {@code -resizeable}). On a gamescope
-     * display that inner gamescope's X window is forced fullscreen at the display's size, and the outer window
-     * on the desktop scales freely, as a game's does, while every frame keeps the display's size. The bot's own
-     * frames come from {@code adb screencap} either way.
+     * SessionBackend#GAMESCOPE}, for every kind. An emulator app never gets a private display (2026-11-09): it
+     * is read and pressed over ADB.
      */
     public static SessionBackend preferredBackend(LaunchSpec spec) {
         return SessionBackend.GAMESCOPE;
@@ -126,23 +118,14 @@ public final class SessionBackends {
      * backend/window-manager/size combination is decided, so Studio's launcher and the SDK's bootstrap cannot
      * answer it differently.
      *
-     * <p><b>An emulator app gets no window manager.</b> The one client on that display is gamescope's own
-     * window, and openbox would do to it exactly what the desktop's window manager does on {@code :0}: give it
-     * a frame and a size of its choosing. Unmanaged, it covers the screen exactly, which is the whole reason
-     * the display is private — the framebuffer, gamescope's internal resolution and Android's are one number.
-     * Nothing is lost: the WM is there for EWMH focus, and this session's input goes to the only window there
-     * is.
-     *
      * <p>Pure, so the mapping is unit-tested without an X server.
      */
     public static SessionOptions optionsFor(LaunchSpec spec, SessionBackend backend,
                                                    int width, int height) {
-        SessionOptions options = switch (backend) {
+        return switch (backend) {
             case GAMESCOPE -> SessionOptions.gamescope(width, height);
             case XEPHYR -> SessionOptions.xephyr(width, height);
         };
-        boolean emulator = spec != null && spec.kind() == LaunchKind.EMULATOR_APP;
-        return emulator ? options.withoutWindowManager() : options;
     }
 
     /** The window manager to run inside a {@link SessionBackend#XEPHYR} display, when it is installed. */

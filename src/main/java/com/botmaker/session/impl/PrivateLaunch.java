@@ -10,13 +10,8 @@ import com.botmaker.session.remote.DisplayLink;
 import com.botmaker.session.remote.WindowIds;
 import com.botmaker.shared.Diag;
 import com.botmaker.shared.capture.GenericWindow;
-import com.botmaker.shared.emulator.EmulatorInstance;
-import com.botmaker.shared.emulator.EmulatorInstances;
-import com.botmaker.shared.emulator.EmulatorLauncher;
 import com.botmaker.shared.launch.HostLauncherProbe;
 import com.botmaker.shared.launch.LaunchCommands;
-import com.botmaker.shared.launch.LaunchKind;
-import com.botmaker.shared.launch.LaunchPreparation;
 import com.botmaker.shared.launch.LaunchSpec;
 import com.botmaker.shared.launch.Launcher;
 
@@ -103,12 +98,8 @@ final class PrivateLaunch {
             Diag.error("[Session] " + id + ": " + verdict.reason());
             return;
         }
-        // Before the argv, because the one thing a launch changes about the host cannot be passed on a command
-        // line: Waydroid's framebuffer size is a persistent Android property read only at container start. Done
-        // ahead of stopHostInstance so the container it cycles is the one we're about to stop anyway.
-        LaunchPreparation.prepare(spec, display.width(), display.height());
-        // Only the forms that exist here, sized: an emulator app's rung is the compositor Android renders into.
-        List<List<String>> candidates = LaunchIsolation.runnableLadder(spec, display.width(), display.height());
+        // Only the forms that exist here.
+        List<List<String>> candidates = LaunchIsolation.runnableLadder(spec);
         stopHostInstance(spec);
 
         long windowTimeoutMs = windowTimeoutFor(spec, options);
@@ -180,10 +171,6 @@ final class PrivateLaunch {
      * earlier, by {@link HostLauncherProbe} refusing the launch outright.
      */
     private void stopHostInstance(LaunchSpec spec) {
-        if (spec.kind() == LaunchKind.EMULATOR_APP) {
-            stopHostEmulator(spec);
-            return;
-        }
         if (!Launcher.isRunning(spec)) {
             return;
         }
@@ -191,21 +178,6 @@ final class PrivateLaunch {
         if (!Launcher.stopOnHost(spec)) {
             Diag.error("[Session] " + id + ": " + spec.spec() + " is running on the host but can't be stopped by name");
         }
-    }
-
-    /**
-     * Stop the whole emulator <em>session</em> before launching our own, not just the app: there is one Android
-     * container per machine, and {@code waydroid app launch} talks to whichever session is already up. Leave the
-     * host's running and the app appears on the user's desktop while this display waits out its whole budget.
-     * Best-effort and quiet when there is nothing to stop.
-     */
-    private void stopHostEmulator(LaunchSpec spec) {
-        EmulatorInstance instance = EmulatorInstances.find(spec.emulatorInstance()).orElse(null);
-        if (instance == null || !instance.canStop()) {
-            return;
-        }
-        Diag.log("[Session] " + id + ": stopping the host " + instance.brand() + " session so ours owns the container");
-        EmulatorLauncher.stop(instance);
     }
 
     /** All window ids currently on the nested display — the "before" snapshot the new-window attach diffs against. */

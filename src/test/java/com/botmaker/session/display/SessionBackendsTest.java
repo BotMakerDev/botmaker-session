@@ -38,28 +38,8 @@ class SessionBackendsTest {
         }
     }
 
-    /**
-     * An emulator app too (2026-11-02): Waydroid's own gamescope opens on a gamescope display, whose window on
-     * the desktop scales when resized, where a Xephyr one could not be resized at all.
-     */
     @Test
-    void theEmulatorAppWantsGamescopeToo() {
-        assertEquals(SessionBackend.GAMESCOPE,
-                SessionBackends.preferredBackend(spec(LaunchKind.EMULATOR_APP, "com.foo@Waydroid")));
-    }
-
-    /**
-     * And that display must not manage windows: openbox would frame and resize gamescope's window exactly as
-     * the desktop's window manager does on {@code :0} — measured there at 1280×661 for a 1080×1920 container,
-     * which is the letterboxed third-resolution image the private display exists to avoid.
-     */
-    @Test
-    void anEmulatorAppGetsAnExplicitlyUnmanagedDisplay() {
-        SessionOptions emulator = SessionBackends.optionsFor(
-                spec(LaunchKind.EMULATOR_APP, "com.foo@Waydroid"), SessionBackend.XEPHYR, 1080, 1920);
-        assertTrue(emulator.hasExplicitWindowManager(), "must be a stated 'none', not an unstated default");
-        assertTrue(emulator.windowManagerCommand().isEmpty());
-
+    void aGameKeepsTheBackendDefaultWindowManager() {
         SessionOptions game =
                 SessionBackends.optionsFor(spec(LaunchKind.EXE, "/usr/bin/game"), SessionBackend.XEPHYR, 800, 600);
         assertFalse(game.hasExplicitWindowManager(), "a game keeps the backend default (openbox when installed)");

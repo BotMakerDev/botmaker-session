@@ -13,7 +13,10 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
 ### Changed
 
-- An emulator app (Waydroid) runs on a gamescope private display instead of Xephyr, so its window on the desktop can be resized: gamescope scales the picture and the display keeps the bot's size. Waydroid's own gamescope still hosts it inside.
+- **No emulator app gets a private display, Waydroid included** (2026-11-09): `LaunchIsolation.check` refuses it
+  with `NO_CHILD_COMMAND` and the run uses the desktop launch, which reaches Waydroid over ADB under a headless
+  gamescope. `runnableLadder(spec, w, h)`, the "install gamescope" refusal, `PrivateLaunch`'s Waydroid sizing and
+  host-container stop, and `optionsFor`'s unmanaged emulator display are gone.
 - Adopting a display whose X socket is gone (a killed Studio's `:N`) returns at once with one line, instead of spawning display agents that each log a failure.
 
 ## [0.6.1] — 2026-11-01

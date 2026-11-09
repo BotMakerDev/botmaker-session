@@ -3,7 +3,6 @@ package com.botmaker.session.launch;
 import com.botmaker.shared.Executables;
 import com.botmaker.shared.launch.HostLauncherProbe;
 import com.botmaker.shared.launch.LaunchCommands;
-import com.botmaker.shared.launch.LaunchKind;
 import com.botmaker.shared.launch.LaunchSpec;
 import com.botmaker.shared.launch.RunningProbe;
 
@@ -129,21 +128,12 @@ public final class LaunchIsolation {
      * but the trace described a timeout that never happened — and on a slower ladder it would be a real wait.
      */
     public static List<List<String>> runnableLadder(LaunchSpec spec) {
-        return runnableLadder(spec, 0, 0);
+        return runnableLadder(spec, Executables::exists);
     }
 
-    /**
-     * The runnable ladder for a display of a known size — see {@link LaunchCommands#childLadder(LaunchSpec, int,
-     * int)}. Only an emulator app's rung depends on it, and for that one it is not optional: the rung is the
-     * compositor Android will render into.
-     */
-    public static List<List<String>> runnableLadder(LaunchSpec spec, int width, int height) {
-        return runnableLadder(spec, width, height, Executables::exists);
-    }
-
-    /** {@link #runnableLadder(LaunchSpec, int, int)} against an injected probe. */
-    static List<List<String>> runnableLadder(LaunchSpec spec, int width, int height, Predicate<String> installed) {
-        return LaunchCommands.childLadder(spec, width, height).stream()
+    /** {@link #runnableLadder(LaunchSpec)} against an injected probe. */
+    static List<List<String>> runnableLadder(LaunchSpec spec, Predicate<String> installed) {
+        return LaunchCommands.childLadder(spec).stream()
                 .filter(rung -> LaunchCommands.executable(rung) != null
                         && installed.test(LaunchCommands.executable(rung)))
                 .toList();
@@ -243,16 +233,8 @@ public final class LaunchIsolation {
      * {@link LaunchSpec#runsOffDesktop()} target isn't failing at anything: it already runs somewhere no
      * display of ours reaches, so the sentence explains rather than apologises. Every other empty ladder (Epic)
      * really is a target that will land on the user's desktop, and keeps the original wording.
-     *
-     * <p>Waydroid is neither: it <em>can</em> use a private display, so an empty ladder there means the one
-     * thing that builds it is missing, and the sentence says which.
      */
     private static String noChildCommandReason(LaunchSpec spec) {
-        if (spec != null && spec.kind() == LaunchKind.EMULATOR_APP && !spec.runsOffDesktop()) {
-            return "Can't run " + spec.describe() + " in a private display: gamescope isn't installed, and it "
-                    + "is what hosts Waydroid's Wayland UI on a display we own. Install gamescope, or launch it "
-                    + "on your desktop with \"▶ Launch now\".";
-        }
         if (spec != null && spec.runsOffDesktop()) {
             return spec.describe() + " doesn't run on your desktop at all — it runs inside the emulator and is "
                     + "driven over ADB, so it neither needs nor can use a private display. Start it with "
