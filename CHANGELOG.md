@@ -9,7 +9,7 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
-## [Unreleased]
+## [0.7.0] — 2026-11-10
 
 ### Changed
 
@@ -18,6 +18,7 @@ Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
   gamescope. `runnableLadder(spec, w, h)`, the "install gamescope" refusal, `PrivateLaunch`'s Waydroid sizing and
   host-container stop, and `optionsFor`'s unmanaged emulator display are gone.
 - Adopting a display whose X socket is gone (a killed Studio's `:N`) returns at once with one line, instead of spawning display agents that each log a failure.
+- Built against botmaker-shared 0.8.0 (was 0.6.1).
 
 ## [0.6.1] — 2026-11-01
 
