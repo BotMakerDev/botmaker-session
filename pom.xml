@@ -15,6 +15,12 @@
     <groupId>com.github.BotMakerDev</groupId>
     <artifactId>botmaker-session</artifactId>
     <version>0.8.1-SNAPSHOT</version>
+    <licenses>
+        <license>
+            <name>PolyForm-Noncommercial-1.0.0</name>
+            <url>https://polyformproject.org/licenses/noncommercial/1.0.0</url>
+        </license>
+    </licenses>
 
     <!--
       Private display sessions: a bot drives a nested :N X server (Xephyr or gamescope) that owns its own

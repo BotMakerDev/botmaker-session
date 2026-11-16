@@ -30,7 +30,7 @@ project:
     BotMaker dependency and it must never depend on the SDK or Studio.
   authors:
     - LiQiyeDev
-  license: CC0-1.0
+  license: PolyForm-Noncommercial-1.0.0
   copyright: LiQiyeDev
   inceptionYear: '2026'
   links:
