@@ -9,6 +9,12 @@ date it.
 
 Sections are `## [x.y.z] — YYYY-MM-DD`, newest first.
 
+## [0.8.0] — 2026-11-16
+
+### Changed
+
+- Built against botmaker-shared 0.9.0 (was 0.8.1).
+
 ## [0.7.1] — 2026-11-13
 
 ### Changed
