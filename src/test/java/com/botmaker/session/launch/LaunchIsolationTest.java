@@ -117,11 +117,13 @@ class LaunchIsolationTest {
     }
 
     @Test
-    void onlyAnEmulatorAppRunsOffTheDesktop() {
+    void onlyAnEmulatorAppAndAWebsiteRunOffTheDesktop() {
         // A values() sweep on purpose: a kind added later must decide this rather than inherit it. Epic is the
         // one that looks similar (no child command) and is deliberately false — its game does reach a desktop.
+        // A website's Chromium is headless and takes CDP's input, never the desktop's cursor.
         for (LaunchKind kind : LaunchKind.values()) {
-            assertEquals(kind == LaunchKind.EMULATOR_APP, kind.runsOffDesktop(), kind.name());
+            assertEquals(kind == LaunchKind.EMULATOR_APP || kind == LaunchKind.WEB, kind.runsOffDesktop(),
+                    kind.name());
         }
     }
 
