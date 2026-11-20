@@ -106,7 +106,7 @@ real child and use its pid — `SessionHostWindowTest`'s javadoc records this.
 
 Consumed by the SDK and Studio. **No published bot consumes it yet, so the API is currently freely
 breakable** — change signatures when it makes the contract cleaner. The cost is the ordered cross-module
-release (`shared → session → sdk/studio`, see the umbrella `../CLAUDE.md` and `../release.sh`). Reinstate
+release (`shared → session → sdk/studio`, see the umbrella `../CLAUDE.md` § Releasing; `sluice` releases). Reinstate
 stability discipline once real bots ship.
 
 ## Planning
